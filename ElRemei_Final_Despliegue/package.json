@@ -1,0 +1,17 @@
+{
+  "name": "el-remei-sgi-poligono",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=apps/client -- --port 3101\" \"npm run dev --workspace=apps/admin -- --port 3100\"",
+    "build": "npm run build --workspaces --if-present",
+    "start": "npm run start --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "supabase": "^2.75.3"
+  }
+}

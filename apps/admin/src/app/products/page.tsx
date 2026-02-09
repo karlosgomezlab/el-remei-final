@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Product } from '@/types';
+import { getProductImage } from '@/utils/productImages';
 import { toast, Toaster } from 'sonner';
 
 const supabase = createClient(
@@ -84,22 +85,33 @@ export default function ProductsPage() {
 
         setSaving(true);
         try {
-            const productData = {
-                ...editingProduct,
-                price: Number(editingProduct.price)
+            // Create a clean payload with only the fields we want to save
+            const { id, created_at, ...rest } = editingProduct as any; // Exclude id and created_at
+
+            const payload = {
+                name: rest.name,
+                price: Number(rest.price),
+                category: String(rest.category),
+                description: rest.description,
+                image_url: rest.image_url,    // Ensure this matches DB column
+                image_url_2: rest.image_url_2,// Ensure this matches DB column
+                is_available: rest.is_available,
+                is_vegan: rest.is_vegan,
+                is_gluten_free: rest.is_gluten_free,
+                is_favorite: rest.is_favorite
             };
 
             let error;
             if (editingProduct.id) {
                 const { error: updateError } = await supabase
                     .from('products')
-                    .update(productData)
+                    .update(payload)
                     .eq('id', editingProduct.id);
                 error = updateError;
             } else {
                 const { error: insertError } = await supabase
                     .from('products')
-                    .insert([productData]);
+                    .insert([payload]);
                 error = insertError;
             }
 
@@ -110,7 +122,7 @@ export default function ProductsPage() {
             fetchProducts();
         } catch (error: any) {
             console.error("Error saving product:", error);
-            toast.error('Error al guardar el producto');
+            toast.error(`Error: ${error.message || 'Al guardar plato'}`);
         } finally {
             setSaving(false);
         }
@@ -300,6 +312,20 @@ export default function ProductsPage() {
                                             </div>
                                         )}
                                     </div>
+
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-gray-500 mb-2 block ml-2">URL de imagen principal (Alternativa)</label>
+                                        <input
+                                            type="text"
+                                            value={editingProduct?.image_url || ''}
+                                            onChange={e => setEditingProduct({ ...editingProduct!, image_url: e.target.value })}
+                                            className="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 font-bold focus:ring-2 focus:ring-orange-500 outline-none transition-all text-sm text-gray-300 placeholder-gray-600"
+                                            placeholder="https://ejemplo.com/imagen.jpg"
+                                        />
+                                        <p className="text-[9px] text-gray-500 mt-2 ml-2 italic">
+                                            Si no subes una imagen, se usará esta URL.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -368,9 +394,9 @@ export default function ProductsPage() {
                                 {categoryProducts.map(product => (
                                     <div key={product.id} className="group bg-gray-900/40 border border-white/5 rounded-[3rem] overflow-hidden flex flex-col hover:bg-gray-900 transition-all duration-500">
                                         <div className="relative aspect-square overflow-hidden">
-                                            {product.image_url ? (
+                                            {getProductImage(product.name, product.image_url) ? (
                                                 <img
-                                                    src={product.image_url}
+                                                    src={getProductImage(product.name, product.image_url)!}
                                                     alt={product.name}
                                                     className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${!product.is_available ? 'grayscale opacity-30' : ''}`}
                                                 />

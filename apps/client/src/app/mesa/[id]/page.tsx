@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle } from 'lucide-react';
 import { Product, Customer } from '@/types/shared';
+import { getProductImage } from '@/utils/productImages';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -1355,10 +1356,10 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         onClick={() => addToCart(product)}
                                     >
                                         <div className="aspect-[4/3] w-full bg-gray-100 rounded-[2rem] mb-6 overflow-hidden relative">
-                                            {product.image_url ? (
+                                            {getProductImage(product.name, product.image_url) ? (
                                                 <>
                                                     <img
-                                                        src={product.image_url}
+                                                        src={getProductImage(product.name, product.image_url)!}
                                                         alt={product.name}
                                                         className={`w-full h-full object-cover transition-all duration-700 ${product.image_url_2 ? 'group-hover:opacity-0 group-hover:scale-110' : 'group-hover:scale-110'}`}
                                                     />

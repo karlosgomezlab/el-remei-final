@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ChefHat, CreditCard, LayoutDashboard, Loader2, Utensils, Package, CheckCircle, History, GlassWater, Users } from 'lucide-react';
+import { ChefHat, CreditCard, LayoutDashboard, Loader2, Utensils, Package, CheckCircle, History, GlassWater, Users, TrendingUp } from 'lucide-react';
 import { Order } from '@/types';
 import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
@@ -241,6 +241,10 @@ export default function DashboardMesas() {
                     <Link href="/history" className="flex items-center gap-2 bg-zinc-900 px-4 py-2 rounded-xl text-xs font-black hover:bg-zinc-800 transition-all border border-zinc-800">
                         <History className="w-4 h-4" />
                         HISTORIAL
+                    </Link>
+                    <Link href="/stats" className="flex items-center gap-2 bg-purple-600/10 text-purple-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-purple-600/20 transition-all border border-purple-500/20">
+                        <TrendingUp className="w-4 h-4" />
+                        ESTADÍSTICAS
                     </Link>
                 </div>
             </header>

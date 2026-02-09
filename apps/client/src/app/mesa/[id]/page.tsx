@@ -69,6 +69,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     const [isVerifying, setIsVerifying] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [customerHistory, setCustomerHistory] = useState<any[]>([]);
+    const [isRatingOpen, setIsRatingOpen] = useState(false);
+    const [rating, setRating] = useState(0);
 
     // Estados para "Ya tengo cuenta" (Login)
     const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -110,7 +112,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
                         const statusMessages: Record<string, string> = {
                             cooking: '🍽️ ¡Oído cocina! Tu pedido ya se está preparando.',
-                            served: '✅ ¡Buen provecho! Tu pedido ha sido servido.',
+                            ready: '✅ ¡Buen provecho! Tu pedido está de camino a la mesa.',
+                            served: '👋 ¡Gracias por tu visita! Te esperamos pronto.',
                         };
 
                         if (statusMessages[payload.new.status]) {
@@ -118,6 +121,10 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 style: { background: '#18181b', color: '#fff', border: '1px solid #3f3f46' },
                                 autoClose: 5000,
                             });
+
+                            if (payload.new.status === 'served') {
+                                setTimeout(() => setIsRatingOpen(true), 2000);
+                            }
                         }
                     }
                 }
@@ -1489,6 +1496,56 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     <button onClick={() => setCart([])} className="absolute -top-3 -right-3 w-8 h-8 bg-zinc-900 text-white rounded-full flex items-center justify-center shadow-xl border border-white/10 text-xs font-black">X</button>
                 </div>
             )}
+            {/* Modal de Valoración Post-Servicio */}
+            <AnimatePresence>
+                {isRatingOpen && (
+                    <>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300]" />
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 0, y: 100 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.8, opacity: 0, y: 100 }}
+                            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-white rounded-[3.5rem] p-10 z-[301] shadow-2xl text-center"
+                        >
+                            <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                                <Star className="w-10 h-10 fill-current" />
+                            </div>
+                            <h2 className="text-3xl font-black italic tracking-tighter leading-8 mb-2">¿QUÉ TAL LA COMIDA?</h2>
+                            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mb-8">Tu opinión nos ayuda a mejorar</p>
+
+                            <div className="flex justify-center gap-3 mb-10">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                    <button
+                                        key={s}
+                                        onClick={() => setRating(s)}
+                                        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${rating >= s ? 'bg-orange-500 text-white scale-110 shadow-lg shadow-orange-200' : 'bg-gray-50 text-gray-300'}`}
+                                    >
+                                        <Star className={`w-6 h-6 ${rating >= s ? 'fill-current' : ''}`} />
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    setIsRatingOpen(false);
+                                    toast.success("✨ ¡Gracias por tu valoración!", { position: "top-center" });
+                                }}
+                                disabled={rating === 0}
+                                className="w-full bg-zinc-900 text-white py-5 rounded-3xl font-black italic text-lg shadow-xl active:scale-95 transition-all disabled:opacity-30 disabled:grayscale"
+                            >
+                                ENVIAR VALORACIÓN
+                            </button>
+
+                            <button
+                                onClick={() => setIsRatingOpen(false)}
+                                className="mt-4 text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]"
+                            >
+                                Quizás más tarde
+                            </button>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

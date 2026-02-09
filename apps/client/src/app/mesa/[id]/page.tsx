@@ -116,7 +116,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         if (statusMessages[payload.new.status]) {
                             toast.success(statusMessages[payload.new.status], {
                                 style: { background: '#18181b', color: '#fff', border: '1px solid #3f3f46' },
-                                duration: 5000,
+                                autoClose: 5000,
                             });
                         }
                     }

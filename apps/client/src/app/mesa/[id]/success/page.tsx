@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, Home, Utensils, ArrowRight, Timer, Users } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
+import { QRCodeSVG } from 'qrcode.react';
+import { generateVeriFactuQRUrl } from '@/utils/verifactu';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +17,7 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
     const [queuePosition, setQueuePosition] = useState<number | null>(null);
     const [totalActive, setTotalActive] = useState(0);
     const [isDebtPayment, setIsDebtPayment] = useState(false);
+    const [lastOrder, setLastOrder] = useState<any>(null);
 
     useEffect(() => {
         const searchParams = new URLSearchParams(window.location.search);
@@ -44,6 +47,15 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
             .single();
 
         if (myOrder) {
+            // Obtener el pedido completo para VeriFactu
+            const { data: fullOrder } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('id', myOrder.id)
+                .single();
+
+            if (fullOrder) setLastOrder(fullOrder);
+
             const { count } = await supabase
                 .from('orders')
                 .select('*', { count: 'exact', head: true })
@@ -133,6 +145,27 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
                             <p className="text-gray-600 font-medium leading-relaxed italic text-sm">
                                 Tu pago se ha procesado correctamente. El personal de cocina ya tiene tu comanda.
                             </p>
+
+                            {/* Módulo VeriFactu Legal QR */}
+                            {lastOrder?.hash_actual && (
+                                <div className="pt-6 border-t border-gray-100 flex flex-col items-center gap-4">
+                                    <div className="p-3 bg-white border-2 border-gray-900 rounded-2xl shadow-xl">
+                                        <QRCodeSVG
+                                            value={generateVeriFactuQRUrl(lastOrder)}
+                                            size={120}
+                                            level="M"
+                                            includeMargin={false}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-black uppercase text-gray-900 tracking-tighter">Factura VeriFactu Verificada</p>
+                                        <p className="text-[10px] text-gray-400 font-medium leading-tight">Escanea para verificar la validez <br />de este ticket en la sede de la AEAT</p>
+                                    </div>
+                                    <div className="text-[7px] font-mono text-gray-300 break-all px-4">
+                                        HASH: {lastOrder.hash_actual}
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

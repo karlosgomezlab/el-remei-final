@@ -16,6 +16,7 @@ const supabase = createClient(
 export default function DashboardMesas() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isConnected, setIsConnected] = useState(true);
     const ordersRef = useRef<Order[]>([]);
 
     useEffect(() => {
@@ -23,38 +24,60 @@ export default function DashboardMesas() {
     }, [orders]);
 
     useEffect(() => {
-        // 1. Carga inicial de pedidos activos
+        // 1. Carga inicial
         fetchActiveOrders();
 
-        // 2. Escucha en tiempo real (Pulse)
-        const channel = supabase
-            .channel('schema-db-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'orders' },
-                (payload) => {
-                    handleRealtimeUpdate(payload);
-                }
-            )
-            .subscribe();
+        // 2. Sistema de Suscripción Robusta con Auto-Reconexión
+        let channel: any;
+
+        const setupSubscription = () => {
+            if (channel) supabase.removeChannel(channel);
+
+            channel = supabase
+                .channel('admin-dashboard-sync')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'orders' },
+                    (payload) => handleRealtimeUpdate(payload)
+                )
+                .subscribe((status) => {
+                    setIsConnected(status === 'SUBSCRIBED');
+                    if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                        // Reintentar conexión tras un breve retraso si se cae
+                        setTimeout(setupSubscription, 5000);
+                    }
+                });
+        };
+
+        setupSubscription();
+
+        // 3. Sincronización Silenciosa (Libreta de seguridad cada 30s)
+        const syncInterval = setInterval(() => {
+            fetchActiveOrders(true); // Modo silencioso
+        }, 30000);
 
         return () => {
-            supabase.removeChannel(channel);
+            if (channel) supabase.removeChannel(channel);
+            clearInterval(syncInterval);
         };
     }, []);
 
-    const fetchActiveOrders = async () => {
+    const fetchActiveOrders = async (silent = false) => {
+        if (!silent) setLoading(true);
         const { data, error } = await supabase
             .from('orders')
             .select('*')
-            .neq('status', 'served'); // Solo mostramos lo que está en curso
+            .neq('status', 'served')
+            .order('created_at', { ascending: false });
 
         if (error) {
             console.error("Error fetching orders:", error);
+            setIsConnected(false);
         } else if (data) {
             setOrders(data);
+            setIsConnected(true);
         }
-        setLoading(false);
+        if (!silent) setLoading(false);
     };
 
     const handleRealtimeUpdate = (payload: any) => {
@@ -173,7 +196,13 @@ export default function DashboardMesas() {
                         <LayoutDashboard className="w-8 h-8 text-green-500" />
                         CONTROL GESTIÓN EL REMEI
                     </h1>
-                    <p className="text-gray-500 font-medium mt-1 uppercase tracking-tighter">Administración en Tiempo Real • Sala & Bebida</p>
+                    <div className="flex items-center gap-2 mt-1">
+                        <p className="text-gray-500 font-medium uppercase tracking-tighter">Administración en Tiempo Real • Sala & Bebida</p>
+                        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isConnected ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500 animate-pulse'}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+                            {isConnected ? 'Sincronizado' : 'Reconectando...'}
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap gap-4">

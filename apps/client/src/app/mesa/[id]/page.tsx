@@ -232,11 +232,13 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
     const addToCart = (product: Product) => {
         setCart(prev => {
-            const existing = prev.find(item => item.product.id === product.id);
-            if (existing) {
-                return prev.map(item =>
-                    item.product.id === product.id ? { ...item, qty: item.qty + 1 } : item
-                );
+            const existingIndex = prev.findIndex(item => item.product.id === product.id);
+            if (existingIndex !== -1) {
+                // Remove from current position and add to end with updated qty
+                const newCart = [...prev];
+                const item = newCart[existingIndex];
+                newCart.splice(existingIndex, 1);
+                return [...newCart, { ...item, qty: item.qty + 1 }];
             }
             return [...prev, { product, qty: 1 }];
         });
@@ -1423,7 +1425,12 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             </div>
                             <div className="text-left">
                                 <p className="text-[10px] font-black opacity-80 uppercase tracking-widest">Revisar Pedido</p>
-                                <p className="text-xl font-black italic">({cartCount} items)</p>
+                                <p className={`font-black italic ${cart.length > 0 ? 'text-sm leading-tight' : 'text-xl'}`}>
+                                    {cart.length > 0
+                                        ? cart[cart.length - 1].product.name
+                                        : '(0 items)'
+                                    }
+                                </p>
                             </div>
                         </div>
                         <div className="bg-orange-500 px-8 py-5 rounded-[1.8rem] text-2xl font-black shadow-lg">

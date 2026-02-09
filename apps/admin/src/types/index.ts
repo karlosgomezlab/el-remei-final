@@ -2,7 +2,7 @@ export interface Product {
     id: string;
     name: string;
     price: number;
-    category: 'primero' | 'segundo' | 'postre' | 'bebida' | string;
+    category: 'entrante' | 'primero' | 'segundo' | 'postre' | 'bebida' | 'cafe' | string;
     is_available: boolean;
     description?: string;
     image_url?: string;

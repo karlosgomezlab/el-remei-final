@@ -30,7 +30,7 @@ const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const CATEGORIES = ['entrante', 'primero', 'segundo', 'postre', 'bebida', 'otro'];
+const CATEGORIES = ['entrante', 'primero', 'segundo', 'postre', 'bebida', 'cafe', 'otro'];
 
 export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);

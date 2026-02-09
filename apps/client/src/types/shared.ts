@@ -5,7 +5,7 @@ export interface Product {
     image_url?: string;
     image_url_2?: string;
     price: number;
-    category: 'primero' | 'segundo' | 'postre' | 'bebida' | string;
+    category: 'entrante' | 'primero' | 'segundo' | 'postre' | 'bebida' | 'cafe' | string;
     is_available: boolean;
     is_vegan?: boolean;
     is_gluten_free?: boolean;

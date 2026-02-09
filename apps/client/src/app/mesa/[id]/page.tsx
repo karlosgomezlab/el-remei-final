@@ -13,6 +13,7 @@ const CATEGORIES = [
     { id: 'segundo', name: 'Segundos', icon: '🥩' },
     { id: 'postre', name: 'Postres', icon: '🍰' },
     { id: 'bebida', name: 'Bebidas', icon: '🍷' },
+    { id: 'cafe', name: 'Cafés', icon: '☕' },
 ];
 
 const RESTAURANT_COORDS = { lat: 41.612207412731145, lng: 2.1421191183831474 };

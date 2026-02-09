@@ -380,7 +380,7 @@ export default function ProductsPage() {
                                                 </div>
                                             )}
 
-                                            <div className="absolute top-6 right-6 flex flex-col gap-2">
+                                            <div className="absolute top-6 right-6 flex flex-col gap-2 z-20">
                                                 <button
                                                     onClick={() => handleEdit(product)}
                                                     className="p-3 bg-black/60 backdrop-blur-md rounded-2xl hover:bg-orange-600 transition-all group/btn"

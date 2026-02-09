@@ -25,8 +25,40 @@ serve(async (req) => {
     try {
         const body = await req.json();
         console.log("Request Body:", JSON.stringify(body, null, 2));
-        const { orderId, tableNumber, items, totalAmount } = body;
+        const { type, orderId, tableNumber, items, totalAmount, customerId, amount } = body;
 
+        // --- PAGO POR DEUDA ---
+        if (type === 'debt') {
+            console.log(`Processing debt payment for customer ${customerId}: ${amount}€`);
+
+            // Actualizar deuda del cliente
+            const { error: customerError } = await supabase
+                .from('customers')
+                .update({ current_debt: 0 })
+                .eq('id', customerId);
+
+            if (customerError) throw customerError;
+
+            // Marcar todos los pedidos a crédito como pagados
+            const { error: ordersError } = await supabase
+                .from('orders')
+                .update({ is_paid: true })
+                .eq('customer_id', customerId)
+                .eq('payment_method', 'credit')
+                .eq('is_paid', false);
+
+            if (ordersError) {
+                console.error("Error updating related orders:", ordersError);
+            }
+
+            const successUrl = `${req.headers.get('origin')}/mesa/${tableNumber}/success?type=debt`;
+            return new Response(
+                JSON.stringify({ url: successUrl }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+            );
+        }
+
+        // --- PAGO POR PEDIDO (EXISTENTE) ---
         // 0. Lógica de Saturación: Máximo 10 pedidos en cola
         const { count, error: countError } = await supabase
             .from('orders')
@@ -41,22 +73,7 @@ serve(async (req) => {
             );
         }
 
-        // 1. Crear línea de productos para Stripe
-        const line_items = items.map((item: any) => ({
-            price_data: {
-                currency: 'eur',
-                product_data: {
-                    name: item.name,
-                },
-                unit_amount: Math.round(item.price * 100),
-            },
-            quantity: item.qty || 1,
-        }));
-
-        // --- MODO SIMULACIÓN (Pago Ficticio) ---
-        // En un entorno real, aquí llamaríamos a Stripe.
-        // Como estamos en modo demo, actualizamos el pedido directamente.
-
+        // Simulación de éxito para pedidos
         const { error: updateError } = await supabase
             .from('orders')
             .update({
@@ -67,33 +84,12 @@ serve(async (req) => {
 
         if (updateError) throw updateError;
 
-        // Retornamos la URL de éxito directamente
         const successUrl = `${req.headers.get('origin')}/mesa/${tableNumber}/success`;
-
         return new Response(
             JSON.stringify({ url: successUrl }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
         );
 
-        /* 
-        // --- CÓDIGO STRIPE (COMENTADO HASTA TENER KEYS) ---
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items,
-            mode: 'payment',
-            success_url: `${req.headers.get('origin')}/mesa/${tableNumber}/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.headers.get('origin')}/mesa/${tableNumber}`,
-            metadata: {
-                orderId: orderId,
-                tableNumber: tableNumber.toString(),
-            },
-        });
-
-        return new Response(
-            JSON.stringify({ url: session.url }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        );
-        */
     } catch (error) {
         console.error("FUNCTION ERROR:", error);
         return new Response(

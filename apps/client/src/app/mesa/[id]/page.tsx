@@ -15,6 +15,20 @@ const CATEGORIES = [
     { id: 'bebida', name: 'Bebidas', icon: '🍷' },
 ];
 
+const RESTAURANT_COORDS = { lat: 41.612207412731145, lng: 2.1421191183831474 };
+const MAX_DISTANCE_METERS = 150; // Radio de seguridad generoso
+
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371e3; // Radio de la Tierra en metros
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
 export default function MenuCliente({ params }: { params: { id: string } }) {
     const tableId = params.id;
 
@@ -142,8 +156,93 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
         });
     };
 
+    const checkUserLocation = (): Promise<boolean> => {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                alert("⚠️ Tu navegador no soporta geolocalización. Por seguridad, avisa al personal para completar tu pedido.");
+                resolve(false);
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const dist = calculateDistance(
+                        position.coords.latitude,
+                        position.coords.longitude,
+                        RESTAURANT_COORDS.lat,
+                        RESTAURANT_COORDS.lng
+                    );
+
+                    if (dist > MAX_DISTANCE_METERS) {
+                        alert(`⚠️ SEGURIDAD: Estás a ${Math.round(dist)} metros. Debes estar en el restaurante para pedir o pagar. Si estás en la terraza y falla, asegúrate de tener el GPS activado.`);
+                        resolve(false);
+                    } else {
+                        resolve(true);
+                    }
+                },
+                (error) => {
+                    console.error("Geo Error:", error);
+                    alert("⚠️ Por seguridad técnica de El Remei, activa tu ubicación (GPS) para validar que estás en el local.");
+                    resolve(false);
+                },
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
+        });
+    };
+
+    const handlePayDebt = async () => {
+        if (!customer || Number(customer.current_debt) <= 0) return;
+
+        setIsSubmitting(true);
+        try {
+            // Validar ubicación antes de pagar
+            const isNear = await checkUserLocation();
+            if (!isNear) {
+                setIsSubmitting(false);
+                return;
+            }
+
+            // --- SIMULACIÓN DE PASARELA (FICTICIO) ---
+            // En producción aquí llamaríamos a la Edge Function
+            console.log("Simulando pago de deuda...");
+
+            // 1. Poner deuda a cero
+            const { error: customerError } = await supabase
+                .from('customers')
+                .update({ current_debt: 0 })
+                .eq('id', customer.id);
+
+            if (customerError) throw customerError;
+
+            // 2. Marcar pedidos a crédito como pagados
+            await supabase
+                .from('orders')
+                .update({ is_paid: true })
+                .eq('customer_id', customer.id)
+                .eq('payment_method', 'credit');
+
+            // 3. Redirigir a éxito
+            window.location.href = `/mesa/${tableId}/success?type=debt`;
+
+        } catch (error: any) {
+            console.error("Error al pagar deuda:", error);
+            alert(`Error al procesar el pago: ${error.message || "Avisa al personal"}`);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleCheckout = async (paymentMethod: 'cash' | 'card' | 'online' | 'credit' = 'cash') => {
         if (cart.length === 0) return;
+
+        setIsSubmitting(true);
+
+        // Validar ubicación antes de cualquier pedido
+        const isNear = await checkUserLocation();
+        if (!isNear) {
+            setIsSubmitting(false);
+            return;
+        }
 
         const totalToPay = cart.reduce((acc, item) => acc + (Number(item.product.price) * item.qty), 0);
 
@@ -177,15 +276,22 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     table_number: parseInt(tableId),
                     items: flattenedItems,
                     total_amount: totalToPay,
-                    status: 'pending',
+                    status: paymentMethod === 'online' ? 'cooking' : 'pending',
                     payment_method: paymentMethod,
                     customer_id: customer?.id || null,
-                    is_paid: paymentMethod === 'online' // Solo se marca pagado si usa la pasarela online de la App
+                    is_paid: paymentMethod === 'online' || paymentMethod === 'credit' ? false : false // Lógica por defecto
                 }])
                 .select()
                 .single();
 
             if (orderError) throw orderError;
+
+            // Si es pago online, simulamos éxito y marcamos como pagado
+            if (paymentMethod === 'online') {
+                await supabase.from('orders').update({ is_paid: true }).eq('id', order.id);
+                window.location.href = `/mesa/${tableId}/success`;
+                return;
+            }
 
             // Si es crédito, refrescar los datos del cliente para ver la nueva deuda
             if (paymentMethod === 'credit' && customer) {
@@ -643,6 +749,23 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         <p className="text-2xl font-black italic text-white text-right">{Number(customer.current_debt).toFixed(2)}€</p>
                                     </div>
                                 </div>
+
+                                {/* Botón de Pago de Deuda */}
+                                {Number(customer.current_debt) > 0 && (
+                                    <motion.button
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={handlePayDebt}
+                                        disabled={isSubmitting}
+                                        className="w-full mt-6 bg-orange-600 hover:bg-orange-700 text-white py-4 rounded-2xl font-black italic text-sm shadow-xl shadow-orange-900/20 flex items-center justify-center gap-3 transition-all disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? (
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                        ) : (
+                                            <CreditCard className="w-5 h-5" />
+                                        )}
+                                        {isSubmitting ? 'PROCESANDO...' : `PAGAR MI DEUDA (${Number(customer.current_debt).toFixed(2)}€)`}
+                                    </motion.button>
+                                )}
                             </div>
 
                             {/* Historial de Gastos */}
@@ -733,7 +856,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             </header>
 
             {/* Sidebar Navigation */}
-            <aside className="hidden md:flex w-72 bg-white flex-col sticky top-0 h-screen border-r border-gray-100 p-8">
+            <aside className="hidden md:flex w-72 bg-white flex-col sticky top-0 h-screen border-r border-gray-100 p-8 overflow-y-auto no-scrollbar">
                 {totalOrders > 10 && (
                     <div className="mb-6 bg-orange-50 border border-orange-100 p-3 rounded-xl flex items-center gap-3 animate-pulse">
                         <div className="bg-orange-500 p-1.5 rounded-lg flex-shrink-0">
@@ -746,7 +869,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         </p>
                     </div>
                 )}
-                <div className="mb-12 flex flex-col gap-6">
+                <div className="mb-12 flex flex-col gap-6 flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white">
                             <Utensils className="w-6 h-6" />
@@ -775,7 +898,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     </button>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 flex-shrink-0">
                     <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">Categorías</p>
                     {CATEGORIES.map((cat) => (
                         <button
@@ -789,7 +912,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     ))}
                 </div>
 
-                <div className="mt-8">
+                <div className="mt-8 flex-shrink-0">
                     <p className="text-[10px] text-gray-400 font-bold uppercase mb-4 tracking-widest">Estado de mi Mesa</p>
                     <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
                         {activeOrders.length > 0 ? (
@@ -818,8 +941,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         )}
                     </div>
                 </div>
-
-                <div className="mt-8 p-6 bg-zinc-900 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
+                <div className="mt-8 p-6 bg-zinc-900 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group flex-shrink-0 min-h-[180px]">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
                         <Wallet className="w-12 h-12" />
                     </div>
@@ -844,18 +966,11 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             </div>
                             {Number(customer.current_debt) > 0 && (
                                 <button
-                                    onClick={async () => {
-                                        if (confirm('¿Deseas pagar tu deuda ahora? (Simulación de pasarela)')) {
-                                            const { error } = await supabase.from('customers').update({ current_debt: 0 }).eq('id', customer.id);
-                                            if (!error) {
-                                                fetchCustomer(customer.id);
-                                                alert("✅ ¡Pago realizado con éxito! Gracias por tu confianza.");
-                                            }
-                                        }
-                                    }}
-                                    className="w-full mt-2 bg-emerald-600/20 text-emerald-400 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-emerald-600/30 transition-all border border-emerald-500/20"
+                                    disabled={isSubmitting}
+                                    onClick={handlePayDebt}
+                                    className="w-full mt-2 bg-emerald-600/20 text-emerald-400 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-emerald-600/30 transition-all border border-emerald-500/20 disabled:opacity-50"
                                 >
-                                    PAGAR DEUDA ONLINE
+                                    {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'PAGAR DEUDA ONLINE'}
                                 </button>
                             )}
                         </div>
@@ -872,7 +987,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     )}
                 </div>
 
-                <div className="mt-auto p-6 bg-gray-50 rounded-3xl border border-gray-100">
+                <div className="mt-12 p-6 bg-gray-50 rounded-3xl border border-gray-100 mb-12">
                     <p className="text-[10px] text-gray-400 font-bold uppercase mb-2">Ubicación</p>
                     <p className="text-sm font-bold text-gray-700">Mesa {tableId}</p>
                 </div>

@@ -29,6 +29,16 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
     return R * c;
 }
 
+// Función para calcular el hash encadenado de VeriFactu - NEW
+async function generateVeriFactuHash(currentData: any, previousHash: string = '') {
+    const dataString = JSON.stringify(currentData) + previousHash;
+    const msgUint8 = new TextEncoder().encode(dataString);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+}
+
 export default function MenuCliente({ params }: { params: { id: string } }) {
     const tableId = params.id;
 
@@ -44,6 +54,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     const [totalOrders, setTotalOrders] = useState(0);
     const [activeOrders, setActiveOrders] = useState<any[]>([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
+    const [recommendedPlates, setRecommendedPlates] = useState<Product[]>([]);
 
     // Estados para "Te pago mañana"
     const [customer, setCustomer] = useState<Customer | null>(null);
@@ -64,6 +75,14 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     const [dniInput, setDniInput] = useState('');
     const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
+    // Filtros de menú
+    const [activeFilters, setActiveFilters] = useState({
+        vegan: false,
+        glutenFree: false,
+        favorites: false
+    });
+    const [searchQuery, setSearchQuery] = useState('');
+
     useEffect(() => {
         const savedCustomerId = localStorage.getItem('remei_customer_id');
         if (savedCustomerId) {
@@ -78,9 +97,23 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             .channel(`table-${tableId}-orders`)
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'orders', filter: `table_number=eq.${tableId}` },
-                () => {
+                { event: 'UPDATE', schema: 'public', table: 'orders', filter: `table_number=eq.${tableId}` },
+                (payload: any) => {
                     fetchActiveOrders();
+                    // Notificación por SMS si el estado cambia a 'served' o 'cooking'
+                    if (payload.new && payload.old && payload.new.status !== payload.old.status) {
+                        if (payload.new.status === 'cooking') {
+                            supabase.from('sms_outbox').insert([{
+                                phone_number: customer?.phone,
+                                message: `EL REMEI: ¡Tu pedido de la mesa ${tableId} ya está en los fogones! 🔥`
+                            }]);
+                        } else if (payload.new.status === 'served') {
+                            supabase.from('sms_outbox').insert([{
+                                phone_number: customer?.phone,
+                                message: `EL REMEI: ¡Buen provecho! Tu pedido acaba de ser servido en la mesa ${tableId}. 🥘`
+                            }]);
+                        }
+                    }
                 }
             )
             .subscribe();
@@ -116,20 +149,65 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     };
 
     const fetchMenu = async () => {
-        const { data } = await supabase
-            .from('products')
-            .select('*')
-            .eq('is_available', true);
-        if (data) setMenu(data);
+        try {
+            const { data } = await supabase
+                .from('products')
+                .select('*')
+                .eq('is_available', true);
+            if (data) setMenu(data);
 
-        // Obtener total de pedidos activos
-        const { count } = await supabase
-            .from('orders')
-            .select('*', { count: 'exact', head: true })
-            .in('status', ['pending', 'cooking']);
+            const { count } = await supabase
+                .from('orders')
+                .select('*', { count: 'exact', head: true })
+                .in('status', ['pending', 'cooking']);
 
-        setTotalOrders(count || 0);
-        setLoading(false);
+            setTotalOrders(count || 0);
+            setLoading(false);
+        } catch (error) {
+            console.error("Error fetching menu:", error);
+            setLoading(false);
+        }
+    };
+
+    // Efecto para rotar las sugerencias del chef según la categoría activa
+    useEffect(() => {
+        if (menu.length > 0) {
+            // Buscamos favoritos en la categoría actual
+            let currentCategoryPlates = menu.filter(p => p.category === activeCategory);
+            let favorites = currentCategoryPlates.filter(p => p.is_favorite);
+
+            // Si no hay favoritos en esta categoría, cogemos los 3 primeros platos disponibles de esta categoría
+            if (favorites.length === 0) {
+                favorites = currentCategoryPlates.slice(0, 3);
+            }
+
+            setRecommendedPlates(favorites.slice(0, 3));
+        }
+    }, [activeCategory, menu]);
+
+    // Función de Auditoría VeriFactu - NEW
+    const logAuditEvent = async (type: string, description: string, payload: any = {}) => {
+        try {
+            const { data: lastLog } = await supabase
+                .from('audit_logs')
+                .select('hash_actual')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            const prevHash = lastLog?.hash_actual || 'INICIO-AUDIT';
+            const logHash = await generateVeriFactuHash({ type, description, payload }, prevHash);
+
+            await supabase.from('audit_logs').insert([{
+                event_type: type,
+                description,
+                payload,
+                hash_actual: logHash,
+                hash_anterior: prevHash
+            }]);
+        } catch (err) {
+            console.error("Audit log error:", err);
+        }
     };
 
     const handleUpdateDni = async () => {
@@ -230,10 +308,14 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             // En producción aquí llamaríamos a la Edge Function
             console.log("Simulando pago de deuda...");
 
-            // 1. Poner deuda a cero
+            // 1. Poner deuda a cero y recompensar con puntos
+            const pointsToGain = Math.floor(Number(customer.current_debt));
             const { error: customerError } = await supabase
                 .from('customers')
-                .update({ current_debt: 0 })
+                .update({
+                    current_debt: 0,
+                    points: (customer.points || 0) + pointsToGain
+                })
                 .eq('id', customer.id);
 
             if (customerError) throw customerError;
@@ -299,6 +381,18 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 }))
             );
 
+            // --- LÓGICA VERIFACTU: Encadenamiento ---
+            const { data: lastOrder } = await supabase
+                .from('orders')
+                .select('hash_actual')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            const prevHash = lastOrder?.hash_actual || 'INICIO-EL-REMEI';
+            const orderData = { table: tableId, total: totalToPay, items: flattenedItems.length };
+            const currentHash = await generateVeriFactuHash(orderData, prevHash);
+
             const { data: order, error: orderError } = await supabase
                 .from('orders')
                 .insert([{
@@ -308,23 +402,42 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     status: paymentMethod === 'online' ? 'cooking' : 'pending',
                     payment_method: paymentMethod,
                     customer_id: customer?.id || null,
-                    is_paid: paymentMethod === 'online' || paymentMethod === 'credit' ? false : false // Lógica por defecto
+                    is_paid: paymentMethod === 'online' || paymentMethod === 'credit' ? false : false,
+                    hash_actual: currentHash,
+                    hash_anterior: prevHash,
+                    fecha_registro: new Date().toISOString()
                 }])
                 .select()
                 .single();
 
             if (orderError) throw orderError;
 
-            // Si es pago online, simulamos éxito y marcamos como pagado
+            // Si es online o crédito, recompensar puntos y actualizar histórico
+            if (customer) {
+                const newPoints = (customer.points || 0) + Math.floor(totalToPay);
+                let newLevel = 'BRONCE';
+                if (newPoints >= 1000) newLevel = 'ORO';
+                else if (newPoints >= 500) newLevel = 'PLATA';
+
+                await supabase.from('customers').update({
+                    points: newPoints,
+                    loyalty_level: newLevel,
+                    total_spent: (Number(customer.total_spent) || 0) + totalToPay
+                }).eq('id', customer.id);
+
+                if (paymentMethod === 'credit') {
+                    await supabase.from('customers').update({
+                        current_debt: Number(customer.current_debt) + totalToPay
+                    }).eq('id', customer.id);
+                }
+
+                await fetchCustomer(customer.id);
+            }
+
             if (paymentMethod === 'online') {
                 await supabase.from('orders').update({ is_paid: true }).eq('id', order.id);
                 window.location.href = `/mesa/${tableId}/success`;
                 return;
-            }
-
-            // Si es crédito, refrescar los datos del cliente para ver la nueva deuda
-            if (paymentMethod === 'credit' && customer) {
-                await fetchCustomer(customer.id);
             }
 
             setCart([]);
@@ -807,9 +920,31 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         <p className="text-2xl font-black italic text-emerald-400">{Math.max(0, Number(customer.credit_limit) - Number(customer.current_debt)).toFixed(2)}€</p>
                                     </div>
                                     <div className="bg-white/10 p-4 rounded-3xl border border-white/10 shadow-inner">
-                                        <p className="text-[9px] font-black text-orange-500 uppercase mb-1 tracking-widest text-right">Deuda Pendiente</p>
-                                        <p className="text-2xl font-black italic text-white text-right">{Number(customer.current_debt).toFixed(2)}€</p>
+                                        <p className="text-[9px] font-black text-orange-500 uppercase mb-1 tracking-widest text-right">Puntos El Remei</p>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <span className="text-xs bg-orange-600/20 text-orange-500 px-2 py-0.5 rounded-md font-black italic">{customer.loyalty_level || 'BRONCE'}</span>
+                                            <p className="text-2xl font-black italic text-white text-right">{customer.points || 0}</p>
+                                        </div>
                                     </div>
+                                </div>
+
+                                {/* Barra de Progreso de Nivel - NEW */}
+                                <div className="mt-4 px-2">
+                                    <div className="flex justify-between text-[8px] font-black uppercase text-gray-500 mb-2">
+                                        <span>Nivel Actual: {customer.loyalty_level || 'BRONCE'}</span>
+                                        <span>Próximo Nivel: {customer.loyalty_level === 'ORO' ? 'MAX' : (customer.loyalty_level === 'PLATA' ? 'ORO' : 'PLATA')}</span>
+                                    </div>
+                                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-orange-600 to-orange-400"
+                                            style={{ width: `${Math.min(100, ((customer.points || 0) / (customer.loyalty_level === 'PLATA' ? 1000 : 500)) * 100)}%` }}
+                                        ></div>
+                                    </div>
+                                    {customer.loyalty_level !== 'ORO' && (
+                                        <p className="text-[7px] text-gray-600 mt-1 uppercase font-bold italic">
+                                            Te faltan {Math.max(0, (customer.loyalty_level === 'PLATA' ? 1000 : 500) - (customer.points || 0))} puntos para el nivel {customer.loyalty_level === 'PLATA' ? 'ORO' : 'PLATA'}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Botón de Pago de Deuda */}
@@ -1065,12 +1200,28 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             type="text"
                             placeholder="Buscar plato..."
                             className="w-full pl-12 pr-4 py-3 bg-gray-100/50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500/20 text-sm font-medium"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                {/* Mobile Search - NEW */}
+                <div className="md:hidden px-4 pt-4">
+                    <div className="relative w-full">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                        <input
+                            type="text"
+                            placeholder="¿Qué te apetece hoy?"
+                            className="w-full pl-10 pr-4 py-3 bg-gray-100/50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500/20 text-xs font-bold"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
 
                 {/* Mobile Category Scroll */}
-                <div className="md:hidden flex overflow-x-auto px-4 py-4 gap-2 no-scrollbar bg-white shadow-sm sticky top-[72px] z-10 transition-all">
+                <div className="md:hidden flex overflow-x-auto px-4 py-4 gap-2 no-scrollbar bg-white shadow-sm sticky top-[72px] z-10 transition-all border-b border-gray-50">
                     {CATEGORIES.map((cat) => (
                         <button
                             key={cat.id}
@@ -1080,6 +1231,28 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             {cat.icon} {cat.name}
                         </button>
                     ))}
+                </div>
+
+                {/* Desktop & Mobile Filters - NEW PREMIUM UI */}
+                <div className="px-4 md:px-12 py-2 flex gap-2 overflow-x-auto no-scrollbar items-center">
+                    <button
+                        onClick={() => setActiveFilters(f => ({ ...f, favorites: !f.favorites }))}
+                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border transition-all ${activeFilters.favorites ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}
+                    >
+                        <Plus className={`w-3 h-3 ${activeFilters.favorites ? 'rotate-45' : ''} transition-transform`} /> Favoritos
+                    </button>
+                    <button
+                        onClick={() => setActiveFilters(f => ({ ...f, vegan: !f.vegan }))}
+                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border transition-all ${activeFilters.vegan ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}
+                    >
+                        🌱 Vegano
+                    </button>
+                    <button
+                        onClick={() => setActiveFilters(f => ({ ...f, glutenFree: !f.glutenFree }))}
+                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border transition-all ${activeFilters.glutenFree ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}
+                    >
+                        🌾 Sin Gluten
+                    </button>
                 </div>
 
                 {/* Mobile Active Orders Section */}
@@ -1115,6 +1288,38 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     </div>
                 )}
 
+                {/* AI Recommendations - NEW PREMIUM FEATURE */}
+                {recommendedPlates && recommendedPlates.length > 0 && searchQuery.trim() === '' && (
+                    <div className="px-4 md:px-12 py-8 bg-orange-50/30">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="bg-orange-600 p-2 rounded-xl shadow-lg shadow-orange-200">
+                                <ShieldCheck className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black italic uppercase tracking-widest text-orange-950">Sugerencias del Chef</h3>
+                                <p className="text-[10px] font-bold text-orange-600/60 uppercase">Basado en tus gustos y el día de hoy</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4">
+                            {recommendedPlates.map(plate => (
+                                <div
+                                    key={`rec-${plate.id}`}
+                                    onClick={() => addToCart(plate)}
+                                    className="min-w-[200px] bg-white p-4 rounded-[2rem] shadow-sm border border-orange-100 flex items-center gap-4 active:scale-95 transition-transform cursor-pointer"
+                                >
+                                    <div className="w-16 h-16 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0">
+                                        {plate.image_url ? <img src={plate.image_url} alt={plate.name} className="w-full h-full object-cover" /> : <Utensils className="w-6 h-6 m-auto opacity-10" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[11px] font-black italic truncate">{plate.name}</p>
+                                        <p className="text-[10px] font-bold text-orange-600">{plate.price}€</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Grid of Dishes */}
                 <div className="flex-1 px-4 md:px-12 py-6 pb-40">
                     <div className="flex justify-between items-end mb-8">
@@ -1127,35 +1332,74 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {menu.filter(p => p.category === activeCategory).length > 0 ? (
-                            menu.filter(p => p.category === activeCategory).map(product => (
-                                <div
-                                    key={product.id}
-                                    className="group bg-white rounded-[2.5rem] p-4 shadow-sm hover:shadow-2xl hover:shadow-orange-100 transition-all duration-500 border border-gray-100/50 flex flex-col cursor-pointer active:scale-95"
-                                    onClick={() => addToCart(product)}
-                                >
-                                    <div className="aspect-[4/3] w-full bg-gray-100 rounded-[2rem] mb-6 overflow-hidden relative">
-                                        {product.image_url ? (
-                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center opacity-10">
-                                                <Utensils className="w-20 h-20" />
+                        {menu
+                            .filter(p => p.category === activeCategory)
+                            .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                            .filter(p => !activeFilters.vegan || p.is_vegan)
+                            .filter(p => !activeFilters.glutenFree || p.is_gluten_free)
+                            .filter(p => !activeFilters.favorites || p.is_favorite)
+                            .length > 0 ? (
+                            menu
+                                .filter(p => p.category === activeCategory)
+                                .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                                .filter(p => !activeFilters.vegan || p.is_vegan)
+                                .filter(p => !activeFilters.glutenFree || p.is_gluten_free)
+                                .filter(p => !activeFilters.favorites || p.is_favorite)
+                                .map(product => (
+                                    <div
+                                        key={product.id}
+                                        className="group bg-white rounded-[2.5rem] p-4 shadow-sm hover:shadow-2xl hover:shadow-orange-100 transition-all duration-500 border border-gray-100/50 flex flex-col cursor-pointer active:scale-95"
+                                        onClick={() => addToCart(product)}
+                                    >
+                                        <div className="aspect-[4/3] w-full bg-gray-100 rounded-[2rem] mb-6 overflow-hidden relative">
+                                            {product.image_url ? (
+                                                <>
+                                                    <img
+                                                        src={product.image_url}
+                                                        alt={product.name}
+                                                        className={`w-full h-full object-cover transition-all duration-700 ${product.image_url_2 ? 'group-hover:opacity-0 group-hover:scale-110' : 'group-hover:scale-110'}`}
+                                                    />
+                                                    {product.image_url_2 && (
+                                                        <img
+                                                            src={product.image_url_2}
+                                                            alt={`${product.name} detail`}
+                                                            className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700"
+                                                        />
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center opacity-10">
+                                                    <Utensils className="w-20 h-20" />
+                                                </div>
+                                            )}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+
+                                            {/* Badges Premium */}
+                                            <div className="absolute top-4 left-4 flex flex-col gap-2">
+                                                {product.is_favorite && (
+                                                    <div className="bg-red-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">Favorito</div>
+                                                )}
+                                                {product.is_vegan && (
+                                                    <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">Vegano</div>
+                                                )}
+                                                {product.is_gluten_free && (
+                                                    <div className="bg-amber-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">Sin Gluten</div>
+                                                )}
                                             </div>
-                                        )}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md w-12 h-12 rounded-2xl flex items-center justify-center text-orange-500 shadow-xl group-hover:bg-orange-500 group-hover:text-white transition-all duration-300">
-                                            <Plus className="w-6 h-6" />
+
+                                            <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md w-12 h-12 rounded-2xl flex items-center justify-center text-orange-500 shadow-xl group-hover:bg-orange-500 group-hover:text-white transition-all duration-300">
+                                                <Plus className="w-6 h-6" />
+                                            </div>
+                                        </div>
+                                        <div className="px-2 pb-2">
+                                            <div className="flex justify-between items-start mb-2 gap-2">
+                                                <h3 className="font-black text-lg text-gray-800 leading-tight">{product.name}</h3>
+                                                <span className="text-orange-600 font-black text-lg">{Number(product.price).toFixed(2)}€</span>
+                                            </div>
+                                            <p className="text-xs text-gray-400 font-medium leading-relaxed">{product.description || "Deliciosa especialidad de El Remei preparada con ingredientes frescos del día."}</p>
                                         </div>
                                     </div>
-                                    <div className="px-2 pb-2">
-                                        <div className="flex justify-between items-start mb-2 gap-2">
-                                            <h3 className="font-black text-lg text-gray-800 leading-tight">{product.name}</h3>
-                                            <span className="text-orange-600 font-black text-lg">{Number(product.price).toFixed(2)}€</span>
-                                        </div>
-                                        <p className="text-xs text-gray-400 font-medium leading-relaxed">{product.description || "Deliciosa especialidad de El Remei preparada con ingredientes frescos del día."}</p>
-                                    </div>
-                                </div>
-                            ))
+                                ))
                         ) : (
                             <div className="col-span-full py-20 flex flex-col items-center opacity-20">
                                 <Utensils className="w-20 h-20 mb-4" />

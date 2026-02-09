@@ -6,6 +6,10 @@ export interface Product {
     is_available: boolean;
     description?: string;
     image_url?: string;
+    image_url_2?: string;
+    is_vegan?: boolean;
+    is_gluten_free?: boolean;
+    is_favorite?: boolean;
     created_at?: string;
 }
 

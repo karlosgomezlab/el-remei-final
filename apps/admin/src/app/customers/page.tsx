@@ -17,6 +17,17 @@ export default function CustomersPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSendingReminders, setIsSendingReminders] = useState(false);
+    const [confirmConfig, setConfirmConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { }
+    });
 
     useEffect(() => {
         fetchCustomers();
@@ -51,35 +62,70 @@ export default function CustomersPage() {
     };
 
     const handleClearDebt = async (id: string) => {
-        if (!confirm('¿Confirmas que el cliente ha pagado TODA su deuda?')) return;
+        setConfirmConfig({
+            isOpen: true,
+            title: 'Liquidación de Cuenta',
+            message: '¿Estás seguro de que deseas marcar esta cuenta como saldada? Esta acción no se puede deshacer.',
+            onConfirm: async () => {
+                const { error } = await supabase
+                    .from('customers')
+                    .update({ current_debt: 0 })
+                    .eq('id', id);
 
-        const { error } = await supabase
-            .from('customers')
-            .update({ current_debt: 0 })
-            .eq('id', id);
-
-        if (error) {
-            toast.error('Error al liquidar deuda');
-        } else {
-            toast.success('Cuenta liquidada correctamente');
-            fetchCustomers();
-        }
+                if (error) {
+                    toast.error('Error al liquidar deuda');
+                } else {
+                    toast.success('Cuenta liquidada correctamente');
+                    fetchCustomers();
+                }
+                setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleSendAutomatedReminders = async () => {
-        if (!confirm('¿Quieres enviar recordatorios automáticos (WhatsApp y Email) a todos los clientes con deuda?')) return;
+        const debtCustomers = customers.filter(c => Number(c.current_debt) > 0);
 
-        setIsSendingReminders(true);
-        try {
-            const { data, error } = await supabase.functions.invoke('send-reminders');
-            if (error) throw error;
-            toast.success(`Recordatorios enviados a ${data.customers_contacted} clientes`);
-        } catch (error: any) {
-            console.error("Error enviando recordatorios:", error);
-            toast.error('Error al enviar recordatorios automáticos. Asegúrate de configurar las API keys.');
-        } finally {
-            setIsSendingReminders(false);
+        if (debtCustomers.length === 0) {
+            toast.info('No hay clientes con deuda pendiente actualmente.');
+            return;
         }
+
+        const confirmText = `Se han detectado ${debtCustomers.length} clientes con deuda pendiente. ¿Deseas iniciar la campaña de recordatorios vía WhatsApp? Se abrirán los primeros 5 chats automáticamente.`;
+
+        setConfirmConfig({
+            isOpen: true,
+            title: 'Campaña de WhatsApp',
+            message: confirmText,
+            onConfirm: () => {
+                setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+                setIsSendingReminders(true);
+                try {
+                    for (let i = 0; i < Math.min(debtCustomers.length, 5); i++) {
+                        const c = debtCustomers[i];
+                        const msg = `EL REMEI: Hola ${c.name}, te recordamos amablemente que tienes una cuenta pendiente de ${Number(c.current_debt).toFixed(2)}€. Puedes pasar a liquidarla cuando quieras o pagar online. ¡Gracias!`;
+
+                        let cleanPhone = c.phone.replace(/\s/g, '').replace('+', '');
+                        if (!cleanPhone.startsWith('34')) cleanPhone = '34' + cleanPhone;
+
+                        setTimeout(() => {
+                            window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                        }, i * 1500);
+                    }
+
+                    if (debtCustomers.length > 5) {
+                        toast.success(`Abriendo los primeros 5 chats. Haz el resto manualmente.`);
+                    } else {
+                        toast.success(`Abriendo chats de WhatsApp para ${debtCustomers.length} clientes...`);
+                    }
+                } catch (error: any) {
+                    console.error("Error en campaña WhatsApp:", error);
+                    toast.error('Error al intentar abrir los chats de WhatsApp.');
+                } finally {
+                    setIsSendingReminders(false);
+                }
+            }
+        });
     };
 
     const filteredCustomers = customers.filter(c =>
@@ -99,8 +145,37 @@ export default function CustomersPage() {
     );
 
     return (
-        <div className="min-h-screen bg-gray-950 text-white p-6 md:p-12 font-sans">
+        <div className="min-h-screen bg-gray-950 text-white p-6 md:p-12 font-sans relative overflow-x-hidden">
             <Toaster position="top-right" richColors />
+
+            {/* Custom Premium Modal */}
+            {confirmConfig.isOpen && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                    <div className="bg-zinc-900 border border-white/10 p-10 rounded-[3rem] max-w-md w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-200">
+                        <div className="w-20 h-20 bg-emerald-500/10 rounded-3xl flex items-center justify-center mb-8 mx-auto border border-emerald-500/20">
+                            <AlertCircle className="w-10 h-10 text-emerald-500" />
+                        </div>
+                        <h2 className="text-2xl font-black italic text-center mb-4 uppercase tracking-tight">{confirmConfig.title}</h2>
+                        <p className="text-gray-400 text-center font-bold text-sm leading-relaxed mb-10">
+                            {confirmConfig.message}
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                            <button
+                                onClick={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                                className="py-5 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 active:scale-95"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmConfig.onConfirm}
+                                className="py-5 bg-emerald-600 hover:bg-emerald-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/20 active:scale-95 text-white"
+                            >
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-8">
                 <div className="flex items-center gap-6">
@@ -242,7 +317,9 @@ export default function CustomersPage() {
                                     <button
                                         onClick={() => {
                                             const msg = `Hola ${customer.name}, te recordamos que tienes una cuenta pendiente en El Remei de ${Number(customer.current_debt).toFixed(2)}€. Un saludo!`;
-                                            window.open(`https://wa.me/${customer.phone.replace(/\s/g, '')}?text=${encodeURIComponent(msg)}`);
+                                            let cleanPhone = customer.phone.replace(/\s/g, '').replace('+', '');
+                                            if (!cleanPhone.startsWith('34')) cleanPhone = '34' + cleanPhone;
+                                            window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`);
                                         }}
                                         className="py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-xs font-black uppercase transition-all border border-white/5 flex items-center justify-center gap-2"
                                     >

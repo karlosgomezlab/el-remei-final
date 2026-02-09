@@ -807,7 +807,7 @@ export default function MenuCliente({ params }: { params: Promise<{ id: string }
                                             </span>
                                         ) : (
                                             <span className="text-orange-500 font-black animate-pulse">
-                                                {isDrink ? 'BARRA' : 'COCINANDO'}
+                                                {isDrink ? 'BEBIDA' : 'COCINANDO'}
                                             </span>
                                         )}
                                     </div>
@@ -928,7 +928,7 @@ export default function MenuCliente({ params }: { params: Promise<{ id: string }
                                                 <span className={`text-[11px] font-bold ${isReady ? 'text-emerald-400' : 'text-gray-300'}`}>{item.name}</span>
                                             </div>
                                             <span className={`text-[9px] font-black uppercase tracking-tighter ${isReady ? 'text-emerald-500' : 'text-orange-500/60'}`}>
-                                                {isReady ? 'Servido' : (isDrink ? 'Barra' : 'Cocina')}
+                                                {isReady ? 'Servido' : (isDrink ? 'Bebida' : 'Cocina')}
                                             </span>
                                         </div>
                                     );

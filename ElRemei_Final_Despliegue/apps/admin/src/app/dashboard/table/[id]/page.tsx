@@ -194,7 +194,7 @@ export default function TableDetail({ params }: { params: Promise<{ id: string }
                         <div className="bg-blue-500/20 p-2 rounded-xl">
                             <GlassWater className="w-6 h-6 text-blue-400" />
                         </div>
-                        <h2 className="text-xl font-black italic">BARRA</h2>
+                        <h2 className="text-xl font-black italic">BEBIDA</h2>
                     </div>
 
                     <div className="space-y-4">

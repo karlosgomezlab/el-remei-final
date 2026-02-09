@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { Product, Customer } from '@/types/shared';
 import { getProductImage } from '@/utils/productImages';
 import Link from 'next/link';
@@ -102,18 +103,21 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 { event: 'UPDATE', schema: 'public', table: 'orders', filter: `table_number=eq.${tableId}` },
                 (payload: any) => {
                     fetchActiveOrders();
-                    // Notificación por SMS si el estado cambia a 'served' o 'cooking'
+
                     if (payload.new && payload.old && payload.new.status !== payload.old.status) {
-                        if (payload.new.status === 'cooking') {
-                            supabase.from('sms_outbox').insert([{
-                                phone_number: customer?.phone,
-                                message: `EL REMEI: ¡Tu pedido de la mesa ${tableId} ya está en los fogones! 🔥`
-                            }]);
-                        } else if (payload.new.status === 'served') {
-                            supabase.from('sms_outbox').insert([{
-                                phone_number: customer?.phone,
-                                message: `EL REMEI: ¡Buen provecho! Tu pedido acaba de ser servido en la mesa ${tableId}. 🥘`
-                            }]);
+                        // Feedback háptico y visual en el móvil
+                        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+                        const statusMessages: Record<string, string> = {
+                            cooking: '🍽️ ¡Oído cocina! Tu pedido ya se está preparando.',
+                            served: '✅ ¡Buen provecho! Tu pedido ha sido servido.',
+                        };
+
+                        if (statusMessages[payload.new.status]) {
+                            toast.success(statusMessages[payload.new.status], {
+                                style: { background: '#18181b', color: '#fff', border: '1px solid #3f3f46' },
+                                duration: 5000,
+                            });
                         }
                     }
                 }
@@ -992,7 +996,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <div className="flex flex-wrap gap-2">
+                                                <div className="flex flex-wrap gap-2 mb-4">
                                                     {order.items.slice(0, 3).map((item: any, i: number) => (
                                                         <span key={i} className="text-[9px] font-bold text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">
                                                             {item.name}
@@ -1001,6 +1005,35 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                     {order.items.length > 3 && (
                                                         <span className="text-[9px] font-bold text-gray-400 px-2 py-1 italic">+{order.items.length - 3} más</span>
                                                     )}
+                                                </div>
+
+                                                <div className="flex items-center justify-between border-t border-gray-100 pt-3 mt-2">
+                                                    <div className="flex items-center gap-1 text-orange-500">
+                                                        <Star className="w-3 h-3 fill-current" />
+                                                        <span className="text-[10px] font-black uppercase tracking-wider">+{Math.floor(order.total_amount * 10)} Puntos</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const itemsToAdd = order.items.map((item: any) => ({
+                                                                product: {
+                                                                    id: item.product_id,
+                                                                    name: item.name,
+                                                                    price: item.price,
+                                                                    category: item.category || 'otro',
+                                                                    is_available: true
+                                                                },
+                                                                quantity: item.quantity
+                                                            }));
+                                                            setCart([...cart, ...itemsToAdd]);
+                                                            toast.success('¡Pedido repetido añadido al carrito!');
+                                                            setIsCartOpen(true);
+                                                            setIsProfileOpen(false);
+                                                        }}
+                                                        className="flex items-center gap-2 bg-zinc-900 text-white px-3 py-1.5 rounded-full text-[9px] font-black uppercase hover:bg-zinc-800 transition-colors"
+                                                    >
+                                                        <RefreshCw className="w-3 h-3" />
+                                                        Pedir de nuevo
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))
@@ -1025,7 +1058,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     <div className="mb-3 bg-orange-50 border border-orange-100 p-2 rounded-lg flex items-center gap-2">
                         <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping"></div>
                         <p className="text-[9px] font-black text-orange-700 uppercase">
-                            Cocina Saturada: Espera ~25 min
+                            Cocina Saturada: Espera ~{Math.ceil(totalOrders * 3)} min
                         </p>
                     </div>
                 )}
@@ -1131,7 +1164,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             </span>
                                         ) : (
                                             <span className="text-orange-500 font-black animate-pulse">
-                                                {isDrink ? 'BARRA' : 'COCINANDO'}
+                                                {isDrink ? 'BEBIDA' : 'COCINANDO'}
                                             </span>
                                         )}
                                     </div>
@@ -1270,20 +1303,34 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 </h3>
                                 <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full font-black uppercase">En curso</span>
                             </div>
-                            <div className="space-y-3 max-h-48 overflow-y-auto no-scrollbar">
+                            <div className="space-y-4 max-h-48 overflow-y-auto no-scrollbar">
                                 {activeOrders.flatMap((o, oi) => o.items.map((item: any, ii: number) => {
                                     const isDrink = item.category?.toLowerCase() === 'bebida';
                                     const isReady = isDrink ? o.drinks_served : item.is_served;
+                                    const isCooking = !isReady; // Simplification: if not ready, it's cooking/preparing
 
                                     return (
-                                        <div key={`${oi}-${ii}`} className={`flex justify-between items-center p-3 rounded-2xl border ${isReady ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/5 border-white/5'}`}>
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-2 h-2 rounded-full ${isReady ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-orange-500 animate-pulse'}`}></div>
-                                                <span className={`text-[11px] font-bold ${isReady ? 'text-emerald-400' : 'text-gray-300'}`}>{item.name}</span>
+                                        <div key={`${oi}-${ii}`} className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <span className="text-white font-bold text-sm">{item.name}</span>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${isReady ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                                                    {isReady ? 'Listo' : 'Preparando'}
+                                                </span>
                                             </div>
-                                            <span className={`text-[9px] font-black uppercase tracking-tighter ${isReady ? 'text-emerald-500' : 'text-orange-500/60'}`}>
-                                                {isReady ? 'Servido' : (isDrink ? 'Barra' : 'Cocina')}
-                                            </span>
+
+                                            {/* Progress Bar Visual */}
+                                            <div className="relative">
+                                                <div className="flex justify-between text-[8px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+                                                    <span className="text-emerald-500">Recibido</span>
+                                                    <span className={isCooking || isReady ? 'text-orange-500' : ''}>{isDrink ? 'Bebida' : 'Cocina'}</span>
+                                                    <span className={isReady ? 'text-emerald-500' : ''}>Servido</span>
+                                                </div>
+                                                <div className="h-1 bg-white/10 rounded-full overflow-hidden flex">
+                                                    <div className="h-full bg-emerald-500 w-1/3"></div>
+                                                    <div className={`h-full w-1/3 transition-all duration-1000 ${isCooking || isReady ? 'bg-orange-500' : 'bg-transparent'}`}></div>
+                                                    <div className={`h-full w-1/3 transition-all duration-1000 ${isReady ? 'bg-emerald-500' : 'bg-transparent'}`}></div>
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 }))}

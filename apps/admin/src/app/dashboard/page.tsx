@@ -173,7 +173,7 @@ export default function DashboardMesas() {
                         <LayoutDashboard className="w-8 h-8 text-green-500" />
                         CONTROL GESTIÓN EL REMEI
                     </h1>
-                    <p className="text-gray-500 font-medium mt-1 uppercase tracking-tighter">Administración en Tiempo Real • Sala & Barra</p>
+                    <p className="text-gray-500 font-medium mt-1 uppercase tracking-tighter">Administración en Tiempo Real • Sala & Bebida</p>
                 </div>
 
                 <div className="flex flex-wrap gap-4">
@@ -182,7 +182,7 @@ export default function DashboardMesas() {
                             <GlassWater className="w-6 h-6 text-blue-400" />
                         </div>
                         <div>
-                            <p className="text-xs text-gray-400 uppercase font-bold">Barra</p>
+                            <p className="text-xs text-gray-400 uppercase font-bold">Bebida</p>
                             <p className="text-2xl font-black text-blue-400">{stats.bar}</p>
                         </div>
                     </div>
@@ -264,10 +264,10 @@ export default function DashboardMesas() {
             <div className="mt-12">
                 <h2 className="text-xl font-black italic mb-6 text-gray-400 flex items-center gap-2">
                     <div className="w-2 h-6 bg-blue-500 rounded-full"></div>
-                    ZONA BARRA (TABURETES)
+                    ZONA BEBIDA (TABURETES)
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-x-3 gap-y-4">
-                    {Array.from({ length: 10 }, (_, i) => i + 21).map((num) => renderTableCard(num, 'Barra', num - 20))}
+                    {Array.from({ length: 10 }, (_, i) => i + 21).map((num) => renderTableCard(num, 'Bebida', num - 20))}
                 </div>
             </div>
         </div>

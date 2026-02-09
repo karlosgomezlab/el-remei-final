@@ -154,7 +154,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
         try {
             const { data } = await supabase
                 .from('products')
-                .select('*')
+                .select('*, image_url')
                 .eq('is_available', true);
             if (data) setMenu(data);
 

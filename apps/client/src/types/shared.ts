@@ -17,6 +17,7 @@ export interface Customer {
     credit_limit: number;
     current_debt: number;
     is_verified: boolean;
+    dni?: string; // Documento Nacional de Identidad para VeriFactu y Crédito
     verification_code?: string;
     last_reminder_sent?: string;
     created_at?: string;

@@ -48,7 +48,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     // Estados para "Te pago mañana"
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
-    const [regForm, setRegForm] = useState({ name: '', email: '', phone: '' });
+    const [regForm, setRegForm] = useState({ name: '', email: '', phone: '', dni: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
     const [verificationInput, setVerificationInput] = useState('');
@@ -59,6 +59,10 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     // Estados para "Ya tengo cuenta" (Login)
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [loginPhone, setLoginPhone] = useState('');
+
+    // Estado para edición de perfil
+    const [dniInput, setDniInput] = useState('');
+    const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
     useEffect(() => {
         const savedCustomerId = localStorage.getItem('remei_customer_id');
@@ -126,6 +130,26 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
         setTotalOrders(count || 0);
         setLoading(false);
+    };
+
+    const handleUpdateDni = async () => {
+        if (!customer || !dniInput) return;
+        setIsUpdatingProfile(true);
+        try {
+            const { error } = await supabase
+                .from('customers')
+                .update({ dni: dniInput.toUpperCase() })
+                .eq('id', customer.id);
+
+            if (error) throw error;
+
+            await fetchCustomer(customer.id);
+            alert("✅ DNI actualizado correctamente. Ya puedes usar el crédito.");
+        } catch (error: any) {
+            alert(`Error al actualizar DNI: ${error.message}`);
+        } finally {
+            setIsUpdatingProfile(false);
+        }
     };
 
     const addToCart = (product: Product) => {
@@ -253,6 +277,11 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             }
             if (!customer.is_verified) {
                 setIsVerifyModalOpen(true);
+                return;
+            }
+            if (!customer.dni) {
+                alert("⚠️ Para utilizar el crédito 'TE PAGO MAÑANA' es obligatorio completar tu DNI en tu perfil por normativa fiscal.");
+                setIsProfileOpen(true);
                 return;
             }
             if ((Number(customer.current_debt) + totalToPay) > Number(customer.credit_limit)) {
@@ -463,6 +492,17 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         className="w-full bg-gray-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-2 focus:ring-orange-500/20"
                                         value={regForm.phone}
                                         onChange={e => setRegForm({ ...regForm, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">DNI / NIE (Obligatorio para crédito)</label>
+                                    <input
+                                        required
+                                        type="text"
+                                        placeholder="12345678X"
+                                        className="w-full bg-gray-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-2 focus:ring-orange-500/20"
+                                        value={regForm.dni}
+                                        onChange={e => setRegForm({ ...regForm, dni: e.target.value.toUpperCase() })}
                                     />
                                 </div>
                                 <div>
@@ -729,12 +769,34 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     </div>
                                     <div>
                                         <h2 className="text-3xl font-black italic">{customer.name}</h2>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <div className={`px-3 py-1 rounded-full text-[8px] font-black flex items-center gap-1 ${customer.is_verified ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' : 'bg-orange-500/20 text-orange-400 border border-orange-500/20'}`}>
-                                                {customer.is_verified ? <ShieldCheck className="w-2 h-2" /> : <AlertCircle className="w-2 h-2" />}
-                                                {customer.is_verified ? 'CLIENTE VERIFICADO' : 'PENDIENTE VERIFICACIÓN'}
+                                        <div className="flex flex-col gap-2 mt-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`px-3 py-1 rounded-full text-[8px] font-black flex items-center gap-1 ${customer.is_verified ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' : 'bg-orange-500/20 text-orange-400 border border-orange-500/20'}`}>
+                                                    {customer.is_verified ? <ShieldCheck className="w-2 h-2" /> : <AlertCircle className="w-2 h-2" />}
+                                                    {customer.is_verified ? 'CLIENTE VERIFICADO' : 'PENDIENTE VERIFICACIÓN'}
+                                                </div>
+                                                <span className="text-gray-500 text-[9px] font-black uppercase">ID: {customer.id.slice(0, 8)}</span>
                                             </div>
-                                            <span className="text-gray-500 text-[9px] font-black uppercase">ID: {customer.id.slice(0, 8)}</span>
+                                            {customer.dni ? (
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">DNI: {customer.dni}</p>
+                                            ) : (
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Añade tu DNI"
+                                                        className="bg-white/5 border border-white/10 rounded-lg px-3 py-1 text-[10px] font-bold text-white focus:ring-1 focus:ring-orange-500/50 w-32"
+                                                        value={dniInput}
+                                                        onChange={(e) => setDniInput(e.target.value.toUpperCase())}
+                                                    />
+                                                    <button
+                                                        onClick={handleUpdateDni}
+                                                        disabled={isUpdatingProfile}
+                                                        className="bg-orange-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase hover:bg-orange-700 disabled:opacity-50"
+                                                    >
+                                                        GUARDAR
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

@@ -972,7 +972,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 return;
             }
             if ((Number(customer.current_debt) + totalToPay) > Number(customer.credit_limit)) {
-                alert(t.alerts.creditLimitExceeded.replace('{limit}', customer.credit_limit));
+                alert(t.alerts.creditLimitExceeded.replace('{limit}', String(customer.credit_limit)));
                 return;
             }
         }

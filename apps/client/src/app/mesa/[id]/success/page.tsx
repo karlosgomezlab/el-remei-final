@@ -19,6 +19,8 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
     const [isDebtPayment, setIsDebtPayment] = useState(false);
     const [lastOrder, setLastOrder] = useState<any>(null);
 
+    const [isLoading, setIsLoading] = useState(true);
+
     useEffect(() => {
         const searchParams = new URLSearchParams(window.location.search);
         setIsDebtPayment(searchParams.get('type') === 'debt');
@@ -37,41 +39,58 @@ export default function SuccessPage({ params }: { params: { id: string } }) {
     }, [tableId]);
 
     const fetchQueuePosition = async () => {
-        // ... (existing fetchQueuePosition logic) ...
-        const { data: myOrder } = await supabase
-            .from('orders')
-            .select('id, created_at')
-            .eq('table_number', parseInt(tableId))
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-        if (myOrder) {
-            // Obtener el pedido completo para VeriFactu
-            const { data: fullOrder } = await supabase
+        try {
+            // ... (existing fetchQueuePosition logic) ...
+            const { data: myOrder } = await supabase
                 .from('orders')
-                .select('*')
-                .eq('id', myOrder.id)
+                .select('id, created_at')
+                .eq('table_number', parseInt(tableId))
+                .order('created_at', { ascending: false })
+                .limit(1)
                 .single();
 
-            if (fullOrder) setLastOrder(fullOrder);
+            if (myOrder) {
+                // Obtener el pedido completo para VeriFactu
+                const { data: fullOrder } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('id', myOrder.id)
+                    .single();
 
-            const { count } = await supabase
-                .from('orders')
-                .select('*', { count: 'exact', head: true })
-                .in('status', ['pending', 'cooking'])
-                .lt('created_at', myOrder.created_at);
+                if (fullOrder) setLastOrder(fullOrder);
 
-            setQueuePosition(count || 0);
+                const { count } = await supabase
+                    .from('orders')
+                    .select('*', { count: 'exact', head: true })
+                    .in('status', ['pending', 'cooking'])
+                    .lt('created_at', myOrder.created_at);
 
-            const { count: total } = await supabase
-                .from('orders')
-                .select('*', { count: 'exact', head: true })
-                .in('status', ['pending', 'cooking']);
+                setQueuePosition(count || 0);
 
-            setTotalActive(total || 0);
+                const { count: total } = await supabase
+                    .from('orders')
+                    .select('*', { count: 'exact', head: true })
+                    .in('status', ['pending', 'cooking']);
+
+                setTotalActive(total || 0);
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
         }
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-[#FDFCFB] flex flex-col items-center justify-center p-6 text-center">
+                <div className="animate-spin text-green-500 mb-4">
+                    <CheckCircle2 className="w-12 h-12 opacity-50" />
+                </div>
+                <h2 className="text-xl font-black italic text-gray-400 animate-pulse">GENERANDO TICKET...</h2>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#FDFCFB] flex flex-col items-center justify-center p-6 text-center">

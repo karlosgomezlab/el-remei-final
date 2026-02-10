@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw, Coffee, Beer, Pizza, Heart } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw, Coffee, Beer, Pizza, Heart, Flame, Truck, PartyPopper } from 'lucide-react';
+import { toast, ToastOptions } from 'react-toastify';
 import confetti from 'canvas-confetti';
 import { Product, Customer } from '@/types/shared';
 import { getProductImage } from '@/utils/productImages';
@@ -74,6 +74,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     const [rating, setRating] = useState(0);
     const [isTipPhase, setIsTipPhase] = useState(false);
     const [selectedTip, setSelectedTip] = useState<number | null>(null);
+    const [customTip, setCustomTip] = useState('');
     const [hasTipped, setHasTipped] = useState(false);
 
     // Estados para "Ya tengo cuenta" (Login)
@@ -122,6 +123,67 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     // Buscamos la versión anterior de ESTE pedido en nuestra ref
                     const oldOrder = prevOrdersRef.current.find(o => o.id === newOrder.id);
 
+
+                    // Función auxiliar para notificaciones personalizadas con diseño "Dark Glass"
+                    const showCustomNotification = (type: 'cooking' | 'ready' | 'delivering' | 'served', title: string, message: string) => {
+                        const config = {
+                            cooking: {
+                                icon: Flame,
+                                color: 'text-amber-500',
+                                bg: 'bg-amber-500/20',
+                                border: 'border-amber-500/20'
+                            },
+                            ready: {
+                                icon: CheckCircle,
+                                color: 'text-green-500',
+                                bg: 'bg-green-500/20',
+                                border: 'border-green-500/20'
+                            },
+                            delivering: {
+                                icon: Truck,
+                                color: 'text-blue-500',
+                                bg: 'bg-blue-500/20',
+                                border: 'border-blue-500/20'
+                            },
+                            served: {
+                                icon: PartyPopper,
+                                color: 'text-purple-500',
+                                bg: 'bg-purple-500/20',
+                                border: 'border-purple-500/20'
+                            }
+                        };
+
+                        const { icon: Icon, color, bg, border } = config[type];
+
+                        toast(
+                            <div className="flex flex-row items-center gap-4 w-full">
+                                <div className={`p-3 rounded-full ${bg} ${color} shrink-0`}>
+                                    <Icon size={24} strokeWidth={2.5} />
+                                </div>
+                                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                                    <h4 className={`font-bold text-lg leading-tight text-white`}>
+                                        {title}
+                                    </h4>
+                                    <p className="text-zinc-400 text-sm font-medium leading-tight truncate">
+                                        {message}
+                                    </p>
+                                </div>
+                            </div>,
+                            {
+                                position: "top-center",
+                                autoClose: 5000,
+                                hideProgressBar: true,
+                                closeOnClick: true,
+                                pauseOnHover: true,
+                                draggable: true,
+                                className: '!bg-zinc-900/95 !backdrop-blur-xl !border !border-white/10 !rounded-2xl !shadow-2xl !p-4 !min-h-0 !w-auto !max-w-[90vw] !mx-auto !mt-4',
+                                bodyClassName: '!m-0 !p-0 !flex !items-center',
+                                icon: false,
+                                closeButton: false
+                            } as ToastOptions
+                        );
+                    };
+
                     // 1. Detectar cambios a nivel de PLATO (Granularidad)
                     if (newOrder.items && oldOrder && oldOrder.items) {
                         newOrder.items.forEach((newItem: any, index: number) => {
@@ -132,16 +194,10 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             if (newItem.status !== oldItem.status) {
                                 if (newItem.status === 'cooking') {
                                     if (navigator.vibrate) navigator.vibrate([100]);
-                                    toast.success(`🔥 Tu ${newItem.name} se está preparando.`, {
-                                        style: { background: '#18181b', color: '#fff', border: '1px solid #ca8a04' },
-                                        autoClose: 4000,
-                                    });
+                                    showCustomNotification('cooking', 'Preparando...', `Tu ${newItem.name} está en el fuego 🔥`);
                                 } else if (newItem.status === 'ready') {
                                     if (navigator.vibrate) navigator.vibrate([100, 100]);
-                                    toast.success(`✅ Tu ${newItem.name} está terminado.`, {
-                                        style: { background: '#18181b', color: '#fff', border: '1px solid #16a34a' },
-                                        autoClose: 4000,
-                                    });
+                                    showCustomNotification('ready', '¡Plato Listo!', `Tu ${newItem.name} ya está terminado ✅`);
                                 }
                             }
                         });
@@ -150,18 +206,17 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     // 2. Cambios de estado GENERAL (Delivering/Served)
                     // Solución EXTREMADAMENTE SIMPLE: Si el estado es relevante, avisamos. Punto.
                     if (['delivering', 'served'].includes(newOrder.status)) {
-                        const statusMessages: Record<string, string> = {
-                            delivering: '🚚 Tu pedido está en camino.',
-                            served: '👋 ¡Gracias por tu visita! Esperamos que hayas disfrutado.',
-                        };
+                        const statusConfig = {
+                            delivering: { type: 'delivering', title: '¡En Camino!', msg: 'Tu pedido está saliendo de cocina 🚚' },
+                            served: { type: 'served', title: '¡A Disfrutar!', msg: 'Gracias por tu visita 👋' }
+                        } as const;
 
-                        if (statusMessages[newOrder.status]) {
+                        const config = statusConfig[newOrder.status as keyof typeof statusConfig];
+
+                        if (config) {
                             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
-                            toast.success(statusMessages[newOrder.status], {
-                                style: { background: '#18181b', color: '#fff', border: '1px solid #3f3f46' },
-                                autoClose: 5000,
-                            });
+                            showCustomNotification(config.type, config.title, config.msg);
 
                             if (newOrder.status === 'served') {
                                 setTimeout(() => setIsRatingOpen(true), 2000);
@@ -1614,26 +1669,45 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     <h2 className="text-2xl font-black italic tracking-tighter leading-7 mb-2">¿QUIERES TENER UN DETALLE CON EL EQUIPO?</h2>
                                     <p className="text-gray-400 font-bold uppercase tracking-widest text-[9px] mb-8">Tu gesto marca la diferencia</p>
 
-                                    <div className="grid grid-cols-3 gap-3 mb-8">
+                                    <div className="grid grid-cols-2 gap-3 mb-6">
                                         {[
                                             { id: 2, icon: <Coffee className="w-5 h-5" />, label: 'Café', amount: '2€' },
                                             { id: 5, icon: <Beer className="w-5 h-5" />, label: 'Caña', amount: '5€' },
                                             { id: 10, icon: <Pizza className="w-5 h-5" />, label: 'Cena', amount: '10€' },
+                                            { id: -1, icon: <Wallet className="w-5 h-5" />, label: 'Libre', amount: '...' },
                                         ].map((option) => (
                                             <button
                                                 key={option.id}
                                                 onClick={() => setSelectedTip(option.id)}
-                                                className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${selectedTip === option.id ? 'bg-orange-500 text-white scale-105 shadow-xl shadow-orange-200' : 'bg-gray-50 text-gray-400'}`}
+                                                className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all duration-300 border ${selectedTip === option.id ? 'bg-orange-500 text-white border-orange-500 scale-105 shadow-xl shadow-orange-200' : 'bg-gray-50 text-gray-400 border-gray-100'}`}
                                             >
                                                 {option.icon}
-                                                <span className="text-[10px] font-black uppercase">{option.amount}</span>
+                                                <div className="flex flex-col items-center leading-none">
+                                                    <span className="text-[10px] font-black uppercase opacity-60 mb-1">{option.label}</span>
+                                                    <span className="text-sm font-black uppercase">{option.amount}</span>
+                                                </div>
                                             </button>
                                         ))}
                                     </div>
 
+                                    {selectedTip === -1 && (
+                                        <div className="mb-6 relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">€</span>
+                                            <input
+                                                type="number"
+                                                placeholder="0.00"
+                                                value={customTip}
+                                                onChange={(e) => setCustomTip(e.target.value)}
+                                                className="w-full pl-8 pr-4 py-4 bg-gray-100 rounded-2xl font-black text-xl text-center focus:ring-2 focus:ring-orange-500/20 border-none outline-none"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    )}
+
                                     <button
                                         onClick={() => {
                                             if (selectedTip) {
+                                                // Lógica real de pago iría aquí
                                                 if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
                                                 confetti({
                                                     particleCount: 150,
@@ -1645,7 +1719,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                 setHasTipped(true);
                                             }
                                         }}
-                                        disabled={!selectedTip}
+                                        disabled={!selectedTip || (selectedTip === -1 && (!customTip || Number(customTip) <= 0))}
                                         className="w-full bg-zinc-900 text-white py-5 rounded-3xl font-black italic text-lg shadow-xl active:scale-95 transition-all disabled:opacity-20"
                                     >
                                         INVITAR AL EQUIPO

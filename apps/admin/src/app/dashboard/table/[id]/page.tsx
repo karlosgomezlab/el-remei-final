@@ -106,7 +106,7 @@ export default function TableDetail({ params }: { params: { id: string } | Promi
 
         const { error } = await supabase
             .from('orders')
-            .update({ items: updatedItems })
+            .update({ items: updatedItems, status: 'delivering' })
             .eq('id', orderId);
 
         if (error) {

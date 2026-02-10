@@ -136,6 +136,11 @@ export default function DashboardMesas() {
         }
     };
 
+    const markAsDelivering = async (orderId: string) => {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'delivering' } : o));
+        await supabase.from('orders').update({ status: 'delivering' }).eq('id', orderId);
+    };
+
     const markDrinksAsServed = async (orderId: string) => {
         // Actualizamos localmente
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, drinks_served: true } : o));
@@ -364,15 +369,27 @@ export default function DashboardMesas() {
                                 <div className="space-y-1">
                                     <div className="flex items-center justify-between mb-1">
                                         <span className="text-[8px] font-black uppercase opacity-60">Cocina</span>
-                                        {foodItems.every((item: any) => item.is_ready) && (
+                                        {tableOrders.some(o => o.status === 'ready') && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    tableOrders.filter(o => o.status === 'ready').forEach(o => markAsDelivering(o.id));
+                                                }}
+                                                className="bg-orange-500 hover:bg-orange-400 text-white text-[7px] font-black px-1.5 py-0.5 rounded-md transition-all animate-pulse"
+                                            >
+                                                EN CAMINO
+                                            </button>
+                                        )}
+                                        {foodItems.every((item: any) => item.is_ready) && !tableOrders.some(o => o.status === 'ready') && (
                                             <ChefHat className="w-3 h-3 text-orange-400" />
                                         )}
                                     </div>
                                     <div className="max-h-20 overflow-y-auto no-scrollbar space-y-0.5">
                                         {foodItems.map((item: any, i) => (
-                                            <div key={i} className={`flex justify-between items-center text-[9px] font-bold ${(item.is_ready || item.is_served) ? 'text-emerald-400' : 'text-gray-300'}`}>
+                                            <div key={i} className={`flex justify-between items-center text-[9px] font-bold ${(item.is_ready || item.is_served) ? 'text-emerald-400' : (tableOrders.some(o => o.id === item.orderId && o.status === 'delivering')) ? 'text-blue-400' : 'text-gray-300'}`}>
                                                 <div className="flex items-center gap-1 truncate">
-                                                    {item.is_served && <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />}
+                                                    {(item.is_served || tableOrders.some(o => o.id === item.orderId && o.status === 'delivering')) && <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />}
                                                     <span className={`truncate ${item.is_served ? 'line-through opacity-60' : ''}`}>{item.name}</span>
                                                 </div>
                                                 <span className="opacity-60 italic flex-shrink-0">x{item.qty || 1}</span>

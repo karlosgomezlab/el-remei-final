@@ -20,6 +20,7 @@ export interface OrderItem {
     price: number;
     category: string;
     is_ready?: boolean;
+    status?: 'pending' | 'cooking' | 'ready';
 }
 
 export interface Customer {
@@ -38,7 +39,7 @@ export interface Customer {
 export interface Order {
     id: string;
     table_number: number;
-    status: 'pending' | 'cooking' | 'ready' | 'served';
+    status: 'pending' | 'cooking' | 'ready' | 'delivering' | 'served';
     is_paid: boolean;
     total_amount: number;
     payment_intent_id?: string;

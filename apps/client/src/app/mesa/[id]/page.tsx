@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw } from 'lucide-react';
+import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw, Coffee, Beer, Pizza, Heart } from 'lucide-react';
 import { toast } from 'react-toastify';
+import confetti from 'canvas-confetti';
 import { Product, Customer } from '@/types/shared';
 import { getProductImage } from '@/utils/productImages';
 import Link from 'next/link';
@@ -71,6 +72,9 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     const [customerHistory, setCustomerHistory] = useState<any[]>([]);
     const [isRatingOpen, setIsRatingOpen] = useState(false);
     const [rating, setRating] = useState(0);
+    const [isTipPhase, setIsTipPhase] = useState(false);
+    const [selectedTip, setSelectedTip] = useState<number | null>(null);
+    const [hasTipped, setHasTipped] = useState(false);
 
     // Estados para "Ya tengo cuenta" (Login)
     const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -88,16 +92,24 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     });
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Ref para mantener el estado anterior y poder comparar
+    const prevOrdersRef = useRef<any[]>([]);
+    // Ref para controlar las notificaciones ya enviadas y evitar duplicados/race conditions
+    const lastNotifiedStatusRef = useRef<Record<string, string>>({});
+
     useEffect(() => {
         const savedCustomerId = localStorage.getItem('remei_customer_id');
-        if (savedCustomerId) {
-            fetchCustomer(savedCustomerId);
-        }
 
-        fetchMenu();
-        fetchActiveOrders();
+        const loadInitialData = async () => {
+            if (savedCustomerId) {
+                await fetchCustomer(savedCustomerId);
+            }
+            fetchMenu();
+            fetchActiveOrders();
+        };
 
-        // Suscripción a mis pedidos
+        loadInitialData();
+
         const channel = supabase
             .channel(`table-${tableId}-orders`)
             .on(
@@ -106,23 +118,52 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 (payload: any) => {
                     fetchActiveOrders();
 
-                    if (payload.new && payload.old && payload.new.status !== payload.old.status) {
-                        // Feedback háptico y visual en el móvil
-                        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                    const newOrder = payload.new;
+                    // Buscamos la versión anterior de ESTE pedido en nuestra ref
+                    const oldOrder = prevOrdersRef.current.find(o => o.id === newOrder.id);
 
+                    // 1. Detectar cambios a nivel de PLATO (Granularidad)
+                    if (newOrder.items && oldOrder && oldOrder.items) {
+                        newOrder.items.forEach((newItem: any, index: number) => {
+                            const oldItem = oldOrder.items[index];
+                            if (!oldItem) return;
+
+                            // Si el estado ha cambiado y es relevante
+                            if (newItem.status !== oldItem.status) {
+                                if (newItem.status === 'cooking') {
+                                    if (navigator.vibrate) navigator.vibrate([100]);
+                                    toast.success(`🔥 Tu ${newItem.name} se está preparando.`, {
+                                        style: { background: '#18181b', color: '#fff', border: '1px solid #ca8a04' },
+                                        autoClose: 4000,
+                                    });
+                                } else if (newItem.status === 'ready') {
+                                    if (navigator.vibrate) navigator.vibrate([100, 100]);
+                                    toast.success(`✅ Tu ${newItem.name} está terminado.`, {
+                                        style: { background: '#18181b', color: '#fff', border: '1px solid #16a34a' },
+                                        autoClose: 4000,
+                                    });
+                                }
+                            }
+                        });
+                    }
+
+                    // 2. Cambios de estado GENERAL (Delivering/Served)
+                    // Solución EXTREMADAMENTE SIMPLE: Si el estado es relevante, avisamos. Punto.
+                    if (['delivering', 'served'].includes(newOrder.status)) {
                         const statusMessages: Record<string, string> = {
-                            cooking: '🍽️ ¡Oído cocina! Tu pedido ya se está preparando.',
-                            ready: '✅ ¡Buen provecho! Tu pedido está de camino a la mesa.',
-                            served: '👋 ¡Gracias por tu visita! Te esperamos pronto.',
+                            delivering: '🚚 Tu pedido está en camino.',
+                            served: '👋 ¡Gracias por tu visita! Esperamos que hayas disfrutado.',
                         };
 
-                        if (statusMessages[payload.new.status]) {
-                            toast.success(statusMessages[payload.new.status], {
+                        if (statusMessages[newOrder.status]) {
+                            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+                            toast.success(statusMessages[newOrder.status], {
                                 style: { background: '#18181b', color: '#fff', border: '1px solid #3f3f46' },
                                 autoClose: 5000,
                             });
 
-                            if (payload.new.status === 'served') {
+                            if (newOrder.status === 'served') {
                                 setTimeout(() => setIsRatingOpen(true), 2000);
                             }
                         }
@@ -133,6 +174,19 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
         return () => { supabase.removeChannel(channel); };
     }, []);
+
+    // Actualizamos la ref cada vez que activeOrders cambia, PERO esto se usa para la SIGUIENTE comparación
+    useEffect(() => {
+        if (activeOrders.length > 0) {
+            prevOrdersRef.current = activeOrders;
+            // Sincronizamos también el estado de notificaciones para no notificar lo que ya está cargado y visto
+            activeOrders.forEach(order => {
+                if (!lastNotifiedStatusRef.current[order.id]) {
+                    lastNotifiedStatusRef.current[order.id] = order.status;
+                }
+            });
+        }
+    }, [activeOrders]);
 
     const fetchCustomer = async (id: string) => {
         const { data } = await supabase.from('customers').select('*').eq('id', id).single();
@@ -414,7 +468,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     table_number: parseInt(tableId),
                     items: flattenedItems,
                     total_amount: totalToPay,
-                    status: paymentMethod === 'online' ? 'cooking' : 'pending',
+                    status: 'pending',
                     payment_method: paymentMethod,
                     customer_id: customer?.id || null,
                     is_paid: paymentMethod === 'online' || paymentMethod === 'credit' ? false : false,
@@ -1496,7 +1550,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     <button onClick={() => setCart([])} className="absolute -top-3 -right-3 w-8 h-8 bg-zinc-900 text-white rounded-full flex items-center justify-center shadow-xl border border-white/10 text-xs font-black">X</button>
                 </div>
             )}
-            {/* Modal de Valoración Post-Servicio */}
+            {/* Modal de Valoración y Propinas Post-Servicio */}
             <AnimatePresence>
                 {isRatingOpen && (
                     <>
@@ -1505,43 +1559,134 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             initial={{ scale: 0.8, opacity: 0, y: 100 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.8, opacity: 0, y: 100 }}
-                            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-white rounded-[3.5rem] p-10 z-[301] shadow-2xl text-center"
+                            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-white rounded-[3.5rem] p-10 z-[301] shadow-2xl text-center overflow-hidden"
                         >
-                            <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
-                                <Star className="w-10 h-10 fill-current" />
-                            </div>
-                            <h2 className="text-3xl font-black italic tracking-tighter leading-8 mb-2">¿QUÉ TAL LA COMIDA?</h2>
-                            <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mb-8">Tu opinión nos ayuda a mejorar</p>
+                            {!isTipPhase ? (
+                                <>
+                                    <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                                        <Star className="w-10 h-10 fill-current" />
+                                    </div>
+                                    <h2 className="text-3xl font-black italic tracking-tighter leading-8 mb-2">¿QUÉ TAL LA COMIDA?</h2>
+                                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mb-8">Tu opinión nos ayuda a mejorar</p>
 
-                            <div className="flex justify-center gap-3 mb-10">
-                                {[1, 2, 3, 4, 5].map((s) => (
+                                    <div className="flex justify-center gap-3 mb-10">
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <button
+                                                key={s}
+                                                onClick={() => setRating(s)}
+                                                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${rating >= s ? 'bg-orange-500 text-white scale-110 shadow-lg shadow-orange-200' : 'bg-gray-50 text-gray-300'}`}
+                                            >
+                                                <Star className={`w-6 h-6 ${rating >= s ? 'fill-current' : ''}`} />
+                                            </button>
+                                        ))}
+                                    </div>
+
                                     <button
-                                        key={s}
-                                        onClick={() => setRating(s)}
-                                        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${rating >= s ? 'bg-orange-500 text-white scale-110 shadow-lg shadow-orange-200' : 'bg-gray-50 text-gray-300'}`}
+                                        onClick={() => {
+                                            if (rating >= 4) {
+                                                setIsTipPhase(true);
+                                            } else {
+                                                setIsRatingOpen(false);
+                                                toast.success("✨ ¡Gracias por tu valoración!", { position: "top-center" });
+                                                setTimeout(() => {
+                                                    setRating(0);
+                                                }, 500);
+                                            }
+                                        }}
+                                        disabled={rating === 0}
+                                        className="w-full bg-zinc-900 text-white py-5 rounded-3xl font-black italic text-lg shadow-xl active:scale-95 transition-all disabled:opacity-30 disabled:grayscale"
                                     >
-                                        <Star className={`w-6 h-6 ${rating >= s ? 'fill-current' : ''}`} />
+                                        ENVIAR VALORACIÓN
                                     </button>
-                                ))}
-                            </div>
 
-                            <button
-                                onClick={() => {
-                                    setIsRatingOpen(false);
-                                    toast.success("✨ ¡Gracias por tu valoración!", { position: "top-center" });
-                                }}
-                                disabled={rating === 0}
-                                className="w-full bg-zinc-900 text-white py-5 rounded-3xl font-black italic text-lg shadow-xl active:scale-95 transition-all disabled:opacity-30 disabled:grayscale"
-                            >
-                                ENVIAR VALORACIÓN
-                            </button>
+                                    <button
+                                        onClick={() => {
+                                            setIsRatingOpen(false);
+                                            setTimeout(() => setRating(0), 500);
+                                        }}
+                                        className="mt-4 text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]"
+                                    >
+                                        Quizás más tarde
+                                    </button>
+                                </>
+                            ) : !hasTipped ? (
+                                <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }}>
+                                    <h2 className="text-2xl font-black italic tracking-tighter leading-7 mb-2">¿QUIERES TENER UN DETALLE CON EL EQUIPO?</h2>
+                                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[9px] mb-8">Tu gesto marca la diferencia</p>
 
-                            <button
-                                onClick={() => setIsRatingOpen(false)}
-                                className="mt-4 text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]"
-                            >
-                                Quizás más tarde
-                            </button>
+                                    <div className="grid grid-cols-3 gap-3 mb-8">
+                                        {[
+                                            { id: 2, icon: <Coffee className="w-5 h-5" />, label: 'Café', amount: '2€' },
+                                            { id: 5, icon: <Beer className="w-5 h-5" />, label: 'Caña', amount: '5€' },
+                                            { id: 10, icon: <Pizza className="w-5 h-5" />, label: 'Cena', amount: '10€' },
+                                        ].map((option) => (
+                                            <button
+                                                key={option.id}
+                                                onClick={() => setSelectedTip(option.id)}
+                                                className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${selectedTip === option.id ? 'bg-orange-500 text-white scale-105 shadow-xl shadow-orange-200' : 'bg-gray-50 text-gray-400'}`}
+                                            >
+                                                {option.icon}
+                                                <span className="text-[10px] font-black uppercase">{option.amount}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+                                            if (selectedTip) {
+                                                if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
+                                                confetti({
+                                                    particleCount: 150,
+                                                    spread: 70,
+                                                    origin: { y: 0.6 },
+                                                    zIndex: 1000,
+                                                    colors: ['#f97316', '#10b981', '#ffffff']
+                                                });
+                                                setHasTipped(true);
+                                            }
+                                        }}
+                                        disabled={!selectedTip}
+                                        className="w-full bg-zinc-900 text-white py-5 rounded-3xl font-black italic text-lg shadow-xl active:scale-95 transition-all disabled:opacity-20"
+                                    >
+                                        INVITAR AL EQUIPO
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setIsRatingOpen(false);
+                                            setTimeout(() => {
+                                                setIsTipPhase(false);
+                                                setRating(0);
+                                            }, 500);
+                                        }}
+                                        className="mt-6 text-[10px] font-black uppercase text-gray-400 tracking-widest"
+                                    >
+                                        Ahora no, gracias
+                                    </button>
+                                </motion.div>
+                            ) : (
+                                <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="py-4">
+                                    <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
+                                        <Heart className="w-10 h-10 fill-current" />
+                                    </div>
+                                    <h3 className="text-3xl font-black italic tracking-tighter leading-tight mb-2">¡GRACIAS!</h3>
+                                    <p className="text-gray-600 font-bold italic text-sm">Has hecho feliz al equipo.</p>
+                                    <button
+                                        onClick={() => {
+                                            setIsRatingOpen(false);
+                                            setTimeout(() => {
+                                                setIsTipPhase(false);
+                                                setHasTipped(false);
+                                                setSelectedTip(null);
+                                                setRating(0);
+                                            }, 500);
+                                        }}
+                                        className="mt-10 bg-zinc-900 text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg"
+                                    >
+                                        Cerrar
+                                    </button>
+                                </motion.div>
+                            )}
                         </motion.div>
                     </>
                 )}

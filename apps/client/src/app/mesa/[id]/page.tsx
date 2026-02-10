@@ -95,6 +95,449 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     });
     const [searchQuery, setSearchQuery] = useState('');
 
+    // --- MULTI-IDIOMA ---
+    const [language, setLanguage] = useState<'es' | 'ca' | 'en'>('es');
+
+    const TRANSLATIONS = {
+        es: {
+            searchPlaceholder: "Buscar plato...",
+            favorites: "Favoritos",
+            vegan: "Vegano",
+            glutenFree: "Sin Gluten",
+            chefSuggestions: "Sugerencias del Chef",
+            basedOn: "Basado en tus gustos y el día de hoy",
+            add: "Añadir",
+            added: "Añadido",
+            viewOrder: "Ver pedido",
+            pay: "Pagar",
+            total: "Total",
+            emptyCart: "Tu pedido está vacío",
+            orderSent: "¡Pedido enviado a cocina!",
+            payLater: "Te pago mañana",
+            payNow: "Pagar ahora",
+            login: "Entrar / Registrarse",
+            myAccount: "Mi Cuenta",
+            welcome: "Bienvenido",
+            categories: {
+                entrante: "Entrantes",
+                primero: "Primeros",
+                segundo: "Segundos",
+                postre: "Postres",
+                bebida: "Bebidas",
+                cafe: "Cafés"
+            },
+            status: {
+                pending: "Pendiente",
+                cooking: "Cocinando",
+                ready: "Listo",
+                served: "Servido"
+            },
+            myCurrentOrders: "Mis Pedidos Actuales",
+            inProgress: "En curso",
+            emptyCategory: "Esta categoría está vacía por ahora",
+            specialties: "especialidades",
+            myCredit: "Mi Crédito El Remei",
+            accumulatedDebt: "Deuda acumulada",
+            limit: "Límite",
+            available: "disp.",
+            payOnline: "PAGAR DEUDA ONLINE",
+            activateCredit: "ACTIVAR CRÉDITO",
+            payLaterPromo: "\"Paga mañana tus consumos y lleva el control de tu cuenta.\"",
+            reviewOrder: "Revisar Pedido",
+            location: "Ubicación",
+            table: "Mesa",
+            rating: {
+                title: "¿QUÉ TAL LA COMIDA?",
+                subtitle: "Tu opinión nos ayuda a mejorar",
+                send: "ENVIAR VALORACIÓN",
+                later: "Quizás más tarde",
+                thanks: "✨ ¡Gracias por tu valoración!",
+                tipTitle: "¿QUIERES TENER UN DETALLE CON EL EQUIPO?",
+                tipSubtitle: "Tu gesto marca la diferencia",
+                options: {
+                    coffee: "Café",
+                    beer: "Caña",
+                    dinner: "Cena",
+                    custom: "Libre"
+                }
+            },
+            cart: {
+                title: "Mi Pedido",
+                subtitle: "Revisa antes de marchar",
+                empty: "¡Carrito vacío!",
+                total: "Total del pedido",
+                payApp: "PAGAR DESDE LA APP",
+                cash: "EFECTIVO",
+                card: "DATÁFONO",
+                payLater: "Usar \"Te pago mañana\" (solo clientes autorizados)"
+            },
+            profile: {
+                verified: "CLIENTE VERIFICADO",
+                pending: "PENDIENTE VERIFICACIÓN",
+                id: "ID",
+                dni: "DNI",
+                addDni: "Añade tu DNI",
+                save: "GUARDAR",
+                availableCredit: "Crédito Disponible",
+                points: "Puntos El Remei",
+                currentLevel: "Nivel Actual",
+                nextLevel: "Próximo Nivel",
+                pointsNeeded: "Te faltan {points} puntos para el nivel {level}",
+                processing: "PROCESANDO...",
+                payDebt: "PAGAR MI DEUDA",
+                history: "Historial de Gastos",
+                products: "productos",
+                paid: "Pagado",
+                onTab: "A la libreta",
+                more: "más",
+                pointsEarned: "Puntos",
+                orderAgain: "Pedir de nuevo",
+                orderRepeated: "¡Pedido repetido añadido al carrito!",
+                noHistory: "Aún no hay historial registrado"
+            },
+            kitchenSaturated: "Cocina Saturada: Espera ~{min} min",
+            register: {
+                title: "Únete al Club El Remei",
+                subtitle: "Regístrate una sola vez para usar la opción \"TE PAGO MAÑANA\"",
+                name: "Nombre Completo",
+                phone: "Teléfono (Obligatorio)",
+                dni: "DNI / NIE (Obligatorio para crédito)",
+                email: "Email",
+                registering: "REGISTRANDO...",
+                register: "REGISTRARME Y SEGUIR",
+                alreadyAccount: "¿YA TIENES CUENTA? ENTRAR AQUÍ"
+            },
+            loginModal: {
+                title: "Recuperar Cuenta",
+                subtitle: "Introduce tu teléfono para recibir un código de acceso gratuito",
+                phone: "Teléfono Registrado",
+                searching: "BUSCANDO...",
+                getCode: "RECIBIR CÓDIGO SMS",
+                noAccount: "NO TENGO CUENTA, IR A REGISTRO"
+            },
+            verify: {
+                title: "Verifica tu Móvil",
+                subtitle: "Hemos enviado un código de 5 cifras al",
+                code: "Código de Seguridad",
+                verifying: "VERIFICANDO...",
+                activate: "ACTIVAR MI CUENTA",
+                help: "Si no recibes el SMS, avisa al personal de sala."
+            },
+            notifications: {
+                cooking: {
+                    drink: { title: "Marchando bebida", msg: "Tu {item} está en marcha." },
+                    coffee: { title: "Cafetería", msg: "Barista en acción con tu {item}." },
+                    grill: { title: "En el fuego 🔥", msg: "Tu {item} está en la parrilla." },
+                    sweet: { title: "Momento Dulce 🍰", msg: "Preparando un momento dulce: {item}." },
+                    default: { title: "Preparando...", msg: "El chef está preparando tu {item}." }
+                },
+                ready: { title: "¡Listo para servir! ✅", msg: "Tu {item} ya está terminado." },
+                update: { title: "Actualización", msg: "Estado: {status}" },
+                delivering: { title: "¡En Camino!", msg: "Tu pedido está saliendo de cocina 🚚" },
+                served_msg: { title: "¡A Disfrutar!", msg: "Gracias por tu visita 👋" }
+            },
+            alerts: {
+                dniRequired: "⚠️ Para utilizar el crédito 'TE PAGO MAÑANA' es obligatorio completar tu DNI en tu perfil por normativa fiscal.",
+                creditLimitExceeded: "⚠️ Has superado tu límite de crédito ({limit}€). Por favor, liquida algo de tu deuda antes de seguir.",
+                orderOnTab: "✅ ¡Pedido anotado en tu cuenta! Buen provecho.",
+                orderSent: "✅ ¡Pedido enviado a cocina!",
+                errorCheckout: "Error al procesar el pedido: {error}"
+            }
+        },
+        ca: {
+            searchPlaceholder: "Cercar plat...",
+            favorites: "Preferits",
+            vegan: "Vegà",
+            glutenFree: "Sense Gluten",
+            chefSuggestions: "Suggeriments del Chef",
+            basedOn: "Basat en els teus gustos i el dia d'avui",
+            add: "Afegir",
+            added: "Afegit",
+            viewOrder: "Veure comanda",
+            pay: "Pagar",
+            total: "Total",
+            emptyCart: "La teva comanda està buida",
+            orderSent: "Comanda enviada a cuina!",
+            payLater: "Et pago demà",
+            payNow: "Pagar ara",
+            login: "Entrar / Registrar-se",
+            myAccount: "El meu Compte",
+            welcome: "Benvingut",
+            categories: {
+                entrante: "Entrants",
+                primero: "Primers",
+                segundo: "Segons",
+                postre: "Postres",
+                bebida: "Begudes",
+                cafe: "Cafès"
+            },
+            status: {
+                pending: "Pendent",
+                cooking: "Cuinant",
+                ready: "Llest",
+                served: "Servit"
+            },
+            myCurrentOrders: "Les Meves Comandes",
+            inProgress: "En curs",
+            emptyCategory: "Aquesta categoria està buida per ara",
+            specialties: "especialitats",
+            myCredit: "El Meu Crèdit El Remei",
+            accumulatedDebt: "Deute acumulat",
+            limit: "Límit",
+            available: "disp.",
+            payOnline: "PAGAR DEUTE ONLINE",
+            activateCredit: "ACTIVAR CRÈDIT",
+            payLaterPromo: "\"Paga demà els teus consums i porta el control del teu compte.\"",
+            reviewOrder: "Revisar Comanda",
+            location: "Ubicació",
+            table: "Taula",
+            rating: {
+                title: "QUÈ TAL EL MENJAR?",
+                subtitle: "La teva opinió ens ajuda a millorar",
+                send: "ENVIAR VALORACIÓ",
+                later: "Potser més tard",
+                thanks: "✨ Gràcies per la teva valoració!",
+                tipTitle: "VOLS TENIR UN DETALL AMB L'EQUIP?",
+                tipSubtitle: "El teu gest marca la diferència",
+                options: {
+                    coffee: "Cafè",
+                    beer: "Canya",
+                    dinner: "Sopar",
+                    custom: "Lliure"
+                }
+            },
+            cart: {
+                title: "La Meva Comanda",
+                subtitle: "Revisa abans de marxar",
+                empty: "Carret buit!",
+                total: "Total de la comanda",
+                payApp: "PAGAR DES DE L'APP",
+                cash: "EFECTIU",
+                card: "DATÀFON",
+                payLater: "Fer servir \"Et pago demà\" (només clients autoritzats)"
+            },
+            profile: {
+                verified: "CLIENT VERIFICAT",
+                pending: "PENDENT VERIFICACIÓ",
+                id: "ID",
+                dni: "DNI",
+                addDni: "Afegeix el teu DNI",
+                save: "GUARDAR",
+                availableCredit: "Crèdit Disponible",
+                points: "Punts El Remei",
+                currentLevel: "Nivell Actual",
+                nextLevel: "Pròxim Nivell",
+                pointsNeeded: "Et falten {points} punts per al nivell {level}",
+                processing: "PROCESSANT...",
+                payDebt: "PAGAR EL MEU DEUTE",
+                history: "Historial de Despeses",
+                products: "productes",
+                paid: "Pagat",
+                onTab: "A la llibreta",
+                more: "més",
+                pointsEarned: "Punts",
+                orderAgain: "Demanar de nou",
+                orderRepeated: "Comanda repetida afegida al carret!",
+                noHistory: "Encara no hi ha historial registrat"
+            },
+            kitchenSaturated: "Cuina Saturada: Espera ~{min} min",
+            register: {
+                title: "Uneix-te al Club El Remei",
+                subtitle: "Registra't una sola vegada per utilitzar l'opció \"ET PAGO DEMÀ\"",
+                name: "Nom Complet",
+                phone: "Telèfon (Obligatori)",
+                dni: "DNI / NIE (Obligatori per a crèdit)",
+                email: "Email",
+                registering: "REGISTRANT...",
+                register: "REGISTRAR-ME I SEGUIR",
+                alreadyAccount: "JA TENS COMPTE? ENTRAR AQUÍ"
+            },
+            loginModal: {
+                title: "Recuperar Compte",
+                subtitle: "Introdueix el teu telèfon per rebre un codi d'accés gratuït",
+                phone: "Telèfon Registrat",
+                searching: "CERCANT...",
+                getCode: "REBRE CODI SMS",
+                noAccount: "NO TINC COMPTE, ANAR A REGISTRE"
+            },
+            verify: {
+                title: "Verifica el teu Mòbil",
+                subtitle: "Hem enviat un codi de 5 xifres al",
+                code: "Codi de Seguretat",
+                verifying: "VERIFICANT...",
+                activate: "ACTIVAR EL MEU COMPTE",
+                help: "Si no reps l'SMS, avisa al personal de sala."
+            },
+            notifications: {
+                cooking: {
+                    drink: { title: "Marxant beguda", msg: "El teu {item} està en marxa." },
+                    coffee: { title: "Cafeteria", msg: "Barista en acció amb el teu {item}." },
+                    grill: { title: "Al foc 🔥", msg: "El teu {item} està a la graella." },
+                    sweet: { title: "Moment Dolç 🍰", msg: "Preparant un moment dolç: {item}." },
+                    default: { title: "Preparant...", msg: "El xef està preparant el teu {item}." }
+                },
+                ready: { title: "Llest per servir! ✅", msg: "El teu {item} ja està acabat." },
+                update: { title: "Actualització", msg: "Estat: {status}" },
+                delivering: { title: "En Camí!", msg: "La teva comanda està sortint de cuina 🚚" },
+                served_msg: { title: "A Gaudir!", msg: "Gràcies per la teva visita 👋" }
+            },
+            alerts: {
+                dniRequired: "⚠️ Per utilitzar el crèdit 'ET PAGO DEMÀ' és obligatori completar el teu DNI al teu perfil per normativa fiscal.",
+                creditLimitExceeded: "⚠️ Has superat el teu límit de crèdit ({limit}€). Si us plau, liquida una part del teu deute abans de continuar.",
+                orderOnTab: "✅ Comanda anotada al teu compte! Bon profit.",
+                orderSent: "✅ Comanda enviada a cuina!",
+                errorCheckout: "Error en processar la comanda: {error}"
+            }
+        },
+        en: {
+            searchPlaceholder: "Search dish...",
+            favorites: "Favorites",
+            vegan: "Vegan",
+            glutenFree: "Gluten Free",
+            chefSuggestions: "Chef's Suggestions",
+            basedOn: "Based on your tastes and today",
+            add: "Add",
+            added: "Added",
+            viewOrder: "View Order",
+            pay: "Pay",
+            total: "Total",
+            emptyCart: "Your order is empty",
+            orderSent: "Order sent to kitchen!",
+            payLater: "Pay Later",
+            payNow: "Pay Now",
+            login: "Login / Register",
+            myAccount: "My Account",
+            welcome: "Welcome",
+            categories: {
+                entrante: "Starters",
+                primero: "First Course",
+                segundo: "Main Course",
+                postre: "Desserts",
+                bebida: "Drinks",
+                cafe: "Coffee"
+            },
+            status: {
+                pending: "Pending",
+                cooking: "Cooking",
+                ready: "Ready",
+                served: "Served"
+            },
+            myCurrentOrders: "My Current Orders",
+            inProgress: "In Progress",
+            emptyCategory: "This category is empty for now",
+            specialties: "specialties",
+            myCredit: "My Credit El Remei",
+            accumulatedDebt: "Accumulated Debt",
+            limit: "Limit",
+            available: "avail.",
+            payOnline: "PAY DEBT ONLINE",
+            activateCredit: "ACTIVATE CREDIT",
+            payLaterPromo: "\"Pay tomorrow for your meals and keep track of your account.\"",
+            reviewOrder: "Review Order",
+            location: "Location",
+            table: "Table",
+            rating: {
+                title: "HOW WAS THE FOOD?",
+                subtitle: "Your opinion helps us improve",
+                send: "SEND RATING",
+                later: "Maybe later",
+                thanks: "✨ Thanks for your rating!",
+                tipTitle: "WANT TO TIP THE TEAM?",
+                tipSubtitle: "Your gesture makes a difference",
+                options: {
+                    coffee: "Coffee",
+                    beer: "Beer",
+                    dinner: "Dinner",
+                    custom: "Custom"
+                }
+            },
+            cart: {
+                title: "My Order",
+                subtitle: "Review before ordering",
+                empty: "Empty cart!",
+                total: "Order Total",
+                payApp: "PAY FROM APP",
+                cash: "CASH",
+                card: "CARD",
+                payLater: "Use \"Pay Later\" (authorized customers only)"
+            },
+            profile: {
+                verified: "VERIFIED CUSTOMER",
+                pending: "PENDING VERIFICATION",
+                id: "ID",
+                dni: "ID/TIN",
+                addDni: "Add your ID",
+                save: "SAVE",
+                availableCredit: "Available Credit",
+                points: "Points El Remei",
+                currentLevel: "Current Level",
+                nextLevel: "Next Level",
+                pointsNeeded: "You need {points} points for level {level}",
+                processing: "PROCESSING...",
+                payDebt: "PAY MY DEBT",
+                history: "Expense History",
+                products: "products",
+                paid: "Paid",
+                onTab: "On Tab",
+                more: "more",
+                pointsEarned: "Points",
+                orderAgain: "Order Again",
+                orderRepeated: "Repeated order added to cart!",
+                noHistory: "No history registered yet"
+            },
+            kitchenSaturated: "Kitchen Saturated: Wait ~{min} min",
+            register: {
+                title: "Join El Remei Club",
+                subtitle: "Register once to use the option \"PAY TOMORROW\"",
+                name: "Full Name",
+                phone: "Phone (Required)",
+                dni: "ID / TIN (Required for credit)",
+                email: "Email",
+                registering: "REGISTERING...",
+                register: "REGISTER AND CONTINUE",
+                alreadyAccount: "ALREADY HAVE AN ACCOUNT? LOGIN HERE"
+            },
+            loginModal: {
+                title: "Recover Account",
+                subtitle: "Enter your phone to receive a free access code",
+                phone: "Registered Phone",
+                searching: "SEARCHING...",
+                getCode: "GET SMS CODE",
+                noAccount: "I DON'T HAVE AN ACCOUNT, GO TO REGISTER"
+            },
+            verify: {
+                title: "Verify your Mobile",
+                subtitle: "We sent a 5-digit code to",
+                code: "Security Code",
+                verifying: "VERIFYING...",
+                activate: "ACTIVATE MY ACCOUNT",
+                help: "If you don't receive the SMS, tell the staff."
+            },
+            notifications: {
+                cooking: {
+                    drink: { title: "Drink coming up", msg: "Your {item} is on the way." },
+                    coffee: { title: "Coffee Shop", msg: "Barista working on your {item}." },
+                    grill: { title: "On the grill 🔥", msg: "Your {item} is on the grill." },
+                    sweet: { title: "Sweet Moment 🍰", msg: "Preparing a sweet treat: {item}." },
+                    default: { title: "Preparing...", msg: "The chef is preparing your {item}." }
+                },
+                ready: { title: "Ready to serve! ✅", msg: "Your {item} is ready." },
+                update: { title: "Update", msg: "Status: {status}" },
+                delivering: { title: "On the Way!", msg: "Your order is leaving the kitchen 🚚" },
+                served_msg: { title: "Enjoy!", msg: "Thanks for your visit 👋" }
+            },
+            alerts: {
+                dniRequired: "⚠️ To use 'PAY TOMORROW' credit, filling your ID/TIN in your profile is mandatory for fiscal regulations.",
+                creditLimitExceeded: "⚠️ You have exceeded your credit limit ({limit}€). Please settle some debt before continuing.",
+                orderOnTab: "✅ Order noted on your account! Enjoy.",
+                orderSent: "✅ Order sent to kitchen!",
+                errorCheckout: "Error processing order: {error}"
+            }
+        }
+    };
+
+    const t = TRANSLATIONS[language];
+
     // Ref para mantener el estado anterior y poder comparar
     const prevOrdersRef = useRef<any[]>([]);
     // Ref para controlar las notificaciones ya enviadas y evitar duplicados/race conditions
@@ -195,32 +638,32 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         if (status === 'cooking') {
                             // 1. BEBIDAS Y CAFÉS
                             if (['bebida', 'vinos', 'cervezas', 'refrescos'].includes(cat)) {
-                                return { title: 'Marchando bebida', msg: `Tu ${item.name} está en marcha.`, icon: Wine };
+                                return { ...t.notifications.cooking.drink, msg: t.notifications.cooking.drink.msg.replace('{item}', item.name), icon: Wine };
                             }
                             if (['cafe', 'infusiones', 'cafes'].includes(cat)) {
-                                return { title: 'Cafetería', msg: `Barista en acción con tu ${item.name}.`, icon: Coffee };
+                                return { ...t.notifications.cooking.coffee, msg: t.notifications.cooking.coffee.msg.replace('{item}', item.name), icon: Coffee };
                             }
 
                             // 2. FUEGO (Solo segundos y platos fuertes)
                             if (['segundo', 'carnes', 'pescados', 'pizza', 'hamburguesas', 'brasa'].includes(cat)) {
-                                return { title: 'En el fuego 🔥', msg: `Tu ${item.name} está en la parrilla.`, icon: Flame };
+                                return { ...t.notifications.cooking.grill, msg: t.notifications.cooking.grill.msg.replace('{item}', item.name), icon: Flame };
                             }
 
                             // 3. TODO LO DEMÁS (Entrantes, Primeros, Postres, Ensaladas, Errores...) -> PREPARANDO
                             if (['postre', 'dulces'].includes(cat)) {
-                                return { title: 'Momento Dulce 🍰', msg: `Preparando un momento dulce: ${item.name}.`, icon: CakeSlice };
+                                return { ...t.notifications.cooking.sweet, msg: t.notifications.cooking.sweet.msg.replace('{item}', item.name), icon: CakeSlice };
                             }
 
                             // DEFAULT ABSOLUTO
-                            return { title: 'Preparando...', msg: `El chef está preparando tu ${item.name}.`, icon: Utensils };
+                            return { ...t.notifications.cooking.default, msg: t.notifications.cooking.default.msg.replace('{item}', item.name), icon: Utensils };
                         }
 
                         // Status READY
                         if (status === 'ready') {
-                            return { title: '¡Listo para servir! ✅', msg: `Tu ${item.name} ya está terminado.`, icon: CheckCircle };
+                            return { ...t.notifications.ready, msg: t.notifications.ready.msg.replace('{item}', item.name), icon: CheckCircle };
                         }
 
-                        return { title: 'Actualización', msg: `Estado: ${status}`, icon: CheckCircle };
+                        return { ...t.notifications.update, msg: t.notifications.update.msg.replace('{status}', status), icon: CheckCircle };
                     };
 
                     // 1. Detectar cambios a nivel de PLATO (Granularidad)
@@ -245,8 +688,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     // Solución EXTREMADAMENTE SIMPLE: Si el estado es relevante, avisamos. Punto.
                     if (['delivering', 'served'].includes(newOrder.status)) {
                         const statusConfig = {
-                            delivering: { type: 'delivering', title: '¡En Camino!', msg: 'Tu pedido está saliendo de cocina 🚚' },
-                            served: { type: 'served', title: '¡A Disfrutar!', msg: 'Gracias por tu visita 👋' }
+                            delivering: { type: 'delivering', ...t.notifications.delivering },
+                            served: { type: 'served', ...t.notifications.served_msg }
                         } as const;
 
                         const config = statusConfig[newOrder.status as keyof typeof statusConfig];
@@ -266,7 +709,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, []);
+    }, [language]);
 
     // Actualizamos la ref cada vez que activeOrders cambia, PERO esto se usa para la SIGUIENTE comparación
     useEffect(() => {
@@ -524,12 +967,12 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 return;
             }
             if (!customer.dni) {
-                alert("⚠️ Para utilizar el crédito 'TE PAGO MAÑANA' es obligatorio completar tu DNI en tu perfil por normativa fiscal.");
+                alert(t.alerts.dniRequired);
                 setIsProfileOpen(true);
                 return;
             }
             if ((Number(customer.current_debt) + totalToPay) > Number(customer.credit_limit)) {
-                alert(`⚠️ Has superado tu límite de crédito (${customer.credit_limit}€). Por favor, liquida algo de tu deuda antes de seguir.`);
+                alert(t.alerts.creditLimitExceeded.replace('{limit}', customer.credit_limit));
                 return;
             }
         }
@@ -604,10 +1047,10 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
             setCart([]);
             setIsCartOpen(false);
-            alert(paymentMethod === 'credit' ? "✅ ¡Pedido anotado en tu cuenta! Buen provecho." : "✅ ¡Pedido enviado a cocina!");
+            alert(paymentMethod === 'credit' ? t.alerts.orderOnTab : t.alerts.orderSent);
         } catch (error: any) {
             console.error("Error en checkout:", error);
-            alert(`Error al procesar el pedido: ${error.message || "Avisa al personal"}`);
+            alert(t.alerts.errorCheckout.replace('{error}', error.message || "Avisa al personal"));
         } finally {
             setIsSubmitting(false);
         }
@@ -742,13 +1185,13 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
                                     <ShieldCheck className="w-10 h-10" />
                                 </div>
-                                <h2 className="text-2xl font-black italic">Únete al Club El Remei</h2>
-                                <p className="text-sm text-gray-500 mt-2 font-medium">Regístrate una sola vez para usar la opción <br /><span className="text-orange-600 font-black italic">"TE PAGO MAÑANA"</span></p>
+                                <h2 className="text-2xl font-black italic">{t.register.title}</h2>
+                                <p className="text-sm text-gray-500 mt-2 font-medium">{t.register.subtitle}</p>
                             </div>
 
                             <form onSubmit={handleRegisterCustomer} className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">Nombre Completo</label>
+                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">{t.register.name}</label>
                                     <input
                                         required
                                         type="text"
@@ -759,7 +1202,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">Teléfono (Obligatorio)</label>
+                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">{t.register.phone}</label>
                                     <input
                                         required
                                         type="tel"
@@ -770,7 +1213,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">DNI / NIE (Obligatorio para crédito)</label>
+                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">{t.register.dni}</label>
                                     <input
                                         required
                                         type="text"
@@ -781,7 +1224,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">Email</label>
+                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">{t.register.email}</label>
                                     <input
                                         required
                                         type="email"
@@ -795,7 +1238,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     disabled={isSubmitting}
                                     className="w-full bg-zinc-900 text-white py-5 rounded-2xl font-black italic text-lg shadow-xl active:scale-95 transition-all mt-4 disabled:opacity-50"
                                 >
-                                    {isSubmitting ? 'REGISTRANDO...' : 'REGISTRARME Y SEGUIR'}
+                                    {isSubmitting ? t.register.registering : t.register.register}
                                 </button>
 
                                 <div className="text-center mt-6">
@@ -807,7 +1250,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         }}
                                         className="text-[10px] font-black uppercase text-orange-600 hover:text-orange-700 tracking-widest"
                                     >
-                                        ¿YA TIENES CUENTA? ENTRAR AQUÍ
+                                        {t.register.alreadyAccount}
                                     </button>
                                 </div>
                             </form>
@@ -828,13 +1271,13 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 <div className="w-20 h-20 bg-zinc-100 text-zinc-900 rounded-3xl flex items-center justify-center mx-auto mb-4">
                                     <UserCircle className="w-10 h-10" />
                                 </div>
-                                <h2 className="text-2xl font-black italic">Recuperar Cuenta</h2>
-                                <p className="text-sm text-gray-500 mt-2 font-medium">Introduce tu teléfono para recibir un <br /><span className="text-zinc-900 font-bold">código de acceso gratuito</span></p>
+                                <h2 className="text-2xl font-black italic">{t.loginModal.title}</h2>
+                                <p className="text-sm text-gray-500 mt-2 font-medium">{t.loginModal.subtitle}</p>
                             </div>
 
                             <form onSubmit={handleLoginRequest} className="space-y-6">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">Teléfono Registrado</label>
+                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4 mb-2 block">{t.loginModal.phone}</label>
                                     <input
                                         required
                                         type="tel"
@@ -848,7 +1291,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     disabled={isSubmitting}
                                     className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black italic text-lg shadow-xl shadow-orange-500/20 active:scale-95 transition-all disabled:opacity-50"
                                 >
-                                    {isSubmitting ? 'BUSCANDO...' : 'RECIBIR CÓDIGO SMS'}
+                                    {isSubmitting ? t.loginModal.searching : t.loginModal.getCode}
                                 </button>
                                 <button
                                     type="button"
@@ -858,7 +1301,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     }}
                                     className="w-full text-[10px] font-black uppercase text-gray-400 hover:text-zinc-900 tracking-widest text-center"
                                 >
-                                    NO TENGO CUENTA, IR A REGISTRO
+                                    {t.loginModal.noAccount}
                                 </button>
                             </form>
                         </motion.div>
@@ -878,13 +1321,13 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
                                     <Smartphone className="w-10 h-10" />
                                 </div>
-                                <h2 className="text-2xl font-black italic">Verifica tu Móvil</h2>
-                                <p className="text-sm text-gray-500 mt-2 font-medium">Hemos enviado un código de 5 cifras al <br /><span className="text-zinc-900 font-bold">{customer?.phone}</span></p>
+                                <h2 className="text-2xl font-black italic">{t.verify.title}</h2>
+                                <p className="text-sm text-gray-500 mt-2 font-medium">{t.verify.subtitle} <br /><span className="text-zinc-900 font-bold">{customer?.phone}</span></p>
                             </div>
 
                             <form onSubmit={handleVerifyCode} className="space-y-6">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest text-center block mb-4">Código de Seguridad</label>
+                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest text-center block mb-4">{t.verify.code}</label>
                                     <input
                                         required
                                         type="text"
@@ -892,17 +1335,17 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         placeholder="00000"
                                         className="w-full bg-gray-50 border-none rounded-2xl px-6 py-6 font-black text-4xl text-center tracking-[1rem] focus:ring-2 focus:ring-emerald-500/20"
                                         value={verificationInput}
-                                        onChange={e => setVerificationInput(e.target.value.replace(/\D/g, ''))}
+                                        onChange={e => setVerificationInput(e.target.value.replace(/\D/, ''))}
                                     />
                                 </div>
                                 <button
                                     disabled={isVerifying || verificationInput.length < 5}
                                     className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black italic text-lg shadow-xl shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
                                 >
-                                    {isVerifying ? 'VERIFICANDO...' : 'ACTIVAR MI CUENTA'}
+                                    {isVerifying ? t.verify.verifying : t.verify.activate}
                                 </button>
                                 <p className="text-[9px] text-gray-400 text-center font-bold uppercase tracking-widest">
-                                    Si no recibes el SMS, avisa al personal de sala.
+                                    {t.verify.help}
                                 </p>
                             </form>
                         </motion.div>
@@ -930,8 +1373,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         >
                             <div className="p-8 pb-4 flex justify-between items-center border-b border-gray-50">
                                 <div>
-                                    <h2 className="text-2xl font-black italic">Mi Pedido</h2>
-                                    <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Revisa antes de marchar</p>
+                                    <h2 className="text-2xl font-black italic">{t.cart.title}</h2>
+                                    <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{t.cart.subtitle}</p>
                                 </div>
                                 <button onClick={() => setIsCartOpen(false)} className="bg-gray-100 p-3 rounded-2xl hover:bg-gray-200 transition-all">
                                     <X className="w-6 h-6 text-gray-400" />
@@ -965,14 +1408,14 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 {cart.length === 0 && (
                                     <div className="py-20 flex flex-col items-center opacity-20">
                                         <ShoppingCart className="w-16 h-16 mb-4" />
-                                        <p className="font-black uppercase italic">¡Carrito vacío!</p>
+                                        <p className="font-black uppercase italic">{t.cart.empty}</p>
                                     </div>
                                 )}
                             </div>
 
                             <div className="p-8 bg-white border-t border-gray-50 space-y-3">
                                 <div className="flex justify-between items-center mb-4 px-2">
-                                    <span className="text-gray-400 font-black uppercase text-xs">Total del pedido</span>
+                                    <span className="text-gray-400 font-black uppercase text-xs">{t.cart.total}</span>
                                     <span className="text-3xl font-black text-orange-600 italic">
                                         {total.toFixed(2)}€
                                     </span>
@@ -985,7 +1428,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         className="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-gray-200 disabled:text-gray-400 text-white py-5 rounded-3xl font-black text-lg italic transition-all active:scale-95 shadow-[0_10px_30px_rgba(234,88,12,0.3)] flex items-center justify-center gap-3 relative overflow-hidden"
                                     >
                                         <Smartphone className="w-6 h-6" />
-                                        PAGAR DESDE LA APP
+                                        {t.cart.payApp}
                                     </button>
 
                                     <div className="grid grid-cols-2 gap-3">
@@ -995,7 +1438,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             className="bg-white border-2 border-emerald-500/20 text-emerald-700 py-4 rounded-3xl font-black text-xs italic transition-all active:scale-95 flex items-center justify-center gap-2 hover:bg-emerald-50"
                                         >
                                             <Utensils className="w-4 h-4 text-emerald-500" />
-                                            EFECTIVO
+                                            {t.cart.cash}
                                         </button>
                                         <button
                                             onClick={() => handleCheckout('card')}
@@ -1003,7 +1446,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             className="bg-white border-2 border-blue-500/20 text-blue-700 py-4 rounded-3xl font-black text-xs italic transition-all active:scale-95 flex items-center justify-center gap-2 hover:bg-blue-50"
                                         >
                                             <CreditCard className="w-4 h-4 text-blue-500" />
-                                            DATÁFONO
+                                            {t.cart.card}
                                         </button>
                                     </div>
 
@@ -1014,7 +1457,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             className="text-gray-400 hover:text-zinc-900 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors py-2"
                                         >
                                             <Wallet className="w-3 h-3" />
-                                            Usar "Te pago mañana" (solo clientes autorizados)
+                                            {t.cart.payLater}
                                         </button>
                                     </div>
                                 </div>
@@ -1068,7 +1511,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                         disabled={isUpdatingProfile}
                                                         className="bg-orange-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase hover:bg-orange-700 disabled:opacity-50"
                                                     >
-                                                        GUARDAR
+                                                        {t.profile.save}
                                                     </button>
                                                 </div>
                                             )}
@@ -1078,11 +1521,11 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-white/5 p-4 rounded-3xl border border-white/5">
-                                        <p className="text-[9px] font-black text-gray-500 uppercase mb-1 tracking-widest">Crédito Disponible</p>
+                                        <p className="text-[9px] font-black text-gray-500 uppercase mb-1 tracking-widest">{t.profile.availableCredit}</p>
                                         <p className="text-2xl font-black italic text-emerald-400">{Math.max(0, Number(customer.credit_limit) - Number(customer.current_debt)).toFixed(2)}€</p>
                                     </div>
                                     <div className="bg-white/10 p-4 rounded-3xl border border-white/10 shadow-inner">
-                                        <p className="text-[9px] font-black text-orange-500 uppercase mb-1 tracking-widest text-right">Puntos El Remei</p>
+                                        <p className="text-[9px] font-black text-orange-500 uppercase mb-1 tracking-widest text-right">{t.profile.points}</p>
                                         <div className="flex items-center justify-end gap-2">
                                             <span className="text-xs bg-orange-600/20 text-orange-500 px-2 py-0.5 rounded-md font-black italic">{customer.loyalty_level || 'BRONCE'}</span>
                                             <p className="text-2xl font-black italic text-white text-right">{customer.points || 0}</p>
@@ -1093,8 +1536,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 {/* Barra de Progreso de Nivel - NEW */}
                                 <div className="mt-4 px-2">
                                     <div className="flex justify-between text-[8px] font-black uppercase text-gray-500 mb-2">
-                                        <span>Nivel Actual: {customer.loyalty_level || 'BRONCE'}</span>
-                                        <span>Próximo Nivel: {customer.loyalty_level === 'ORO' ? 'MAX' : (customer.loyalty_level === 'PLATA' ? 'ORO' : 'PLATA')}</span>
+                                        <span>{t.profile.currentLevel}: {customer.loyalty_level || 'BRONCE'}</span>
+                                        <span>{t.profile.nextLevel}: {customer.loyalty_level === 'ORO' ? 'MAX' : (customer.loyalty_level === 'PLATA' ? 'ORO' : 'PLATA')}</span>
                                     </div>
                                     <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                                         <div
@@ -1104,7 +1547,10 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     </div>
                                     {customer.loyalty_level !== 'ORO' && (
                                         <p className="text-[7px] text-gray-600 mt-1 uppercase font-bold italic">
-                                            Te faltan {Math.max(0, (customer.loyalty_level === 'PLATA' ? 1000 : 500) - (customer.points || 0))} puntos para el nivel {customer.loyalty_level === 'PLATA' ? 'ORO' : 'PLATA'}
+                                            {t.profile.pointsNeeded
+                                                .replace('{points}', Math.max(0, (customer.loyalty_level === 'PLATA' ? 1000 : 500) - (customer.points || 0)).toString())
+                                                .replace('{level}', customer.loyalty_level === 'PLATA' ? 'ORO' : 'PLATA')
+                                            }
                                         </p>
                                     )}
                                 </div>
@@ -1122,7 +1568,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         ) : (
                                             <CreditCard className="w-5 h-5" />
                                         )}
-                                        {isSubmitting ? 'PROCESANDO...' : `PAGAR MI DEUDA (${Number(customer.current_debt).toFixed(2)}€)`}
+                                        {isSubmitting ? t.profile.processing : `${t.profile.payDebt} (${Number(customer.current_debt).toFixed(2)}€)`}
                                     </motion.button>
                                 )}
                             </div>
@@ -1131,7 +1577,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             <div className="flex-1 overflow-y-auto p-8 no-scrollbar">
                                 <h3 className="text-xs font-black text-zinc-900 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                                     <HistoryIcon className="w-4 h-4 text-orange-600" />
-                                    Historial de Gastos
+                                    {t.profile.history}
                                 </h3>
 
                                 <div className="space-y-4">
@@ -1140,13 +1586,13 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             <div key={idx} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
                                                 <div className="flex justify-between items-start mb-4">
                                                     <div>
-                                                        <p className="text-[10px] font-black text-gray-400 uppercase">Mesa {order.table_number} • {new Date(order.created_at).toLocaleDateString()}</p>
-                                                        <p className="text-xs font-black text-zinc-900 uppercase italic mt-1">{order.items.length} productos</p>
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase">{t.table} {order.table_number} • {new Date(order.created_at).toLocaleDateString()}</p>
+                                                        <p className="text-xs font-black text-zinc-900 uppercase italic mt-1">{order.items.length} {t.profile.products}</p>
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="text-lg font-black italic text-zinc-900">{Number(order.total_amount).toFixed(2)}€</p>
                                                         <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase ${order.is_paid ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'}`}>
-                                                            {order.is_paid ? 'Pagado' : 'A la libreta'}
+                                                            {order.is_paid ? t.profile.paid : t.profile.onTab}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -1157,14 +1603,14 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                         </span>
                                                     ))}
                                                     {order.items.length > 3 && (
-                                                        <span className="text-[9px] font-bold text-gray-400 px-2 py-1 italic">+{order.items.length - 3} más</span>
+                                                        <span className="text-[9px] font-bold text-gray-400 px-2 py-1 italic">+{order.items.length - 3} {t.profile.more}</span>
                                                     )}
                                                 </div>
 
                                                 <div className="flex items-center justify-between border-t border-gray-100 pt-3 mt-2">
                                                     <div className="flex items-center gap-1 text-orange-500">
                                                         <Star className="w-3 h-3 fill-current" />
-                                                        <span className="text-[10px] font-black uppercase tracking-wider">+{Math.floor(order.total_amount * 10)} Puntos</span>
+                                                        <span className="text-[10px] font-black uppercase tracking-wider">+{Math.floor(order.total_amount * 10)} {t.profile.pointsEarned}</span>
                                                     </div>
                                                     <button
                                                         onClick={() => {
@@ -1179,14 +1625,14 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                                 quantity: item.quantity
                                                             }));
                                                             setCart([...cart, ...itemsToAdd]);
-                                                            toast.success('¡Pedido repetido añadido al carrito!');
+                                                            toast.success(t.profile.orderRepeated);
                                                             setIsCartOpen(true);
                                                             setIsProfileOpen(false);
                                                         }}
                                                         className="flex items-center gap-2 bg-zinc-900 text-white px-3 py-1.5 rounded-full text-[9px] font-black uppercase hover:bg-zinc-800 transition-colors"
                                                     >
                                                         <RefreshCw className="w-3 h-3" />
-                                                        Pedir de nuevo
+                                                        {t.profile.orderAgain}
                                                     </button>
                                                 </div>
                                             </div>
@@ -1196,7 +1642,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
                                                 <HistoryIcon className="w-8 h-8" />
                                             </div>
-                                            <p className="text-xs font-bold uppercase tracking-widest italic">Aún no hay historial registrado</p>
+                                            <p className="text-xs font-bold uppercase tracking-widest italic">{t.profile.noHistory}</p>
                                         </div>
                                     )}
                                 </div>
@@ -1212,7 +1658,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     <div className="mb-3 bg-orange-50 border border-orange-100 p-2 rounded-lg flex items-center gap-2">
                         <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping"></div>
                         <p className="text-[9px] font-black text-orange-700 uppercase">
-                            Cocina Saturada: Espera ~{Math.ceil(totalOrders * 3)} min
+                            {t.kitchenSaturated.replace('{min}', Math.ceil(totalOrders * 3).toString())}
                         </p>
                     </div>
                 )}
@@ -1220,7 +1666,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     <Link href="/" className="p-2 -ml-2"><ArrowLeft className="w-6 h-6" /></Link>
                     <div className="flex flex-col items-center">
                         <h1 className="text-xl font-black text-orange-600">EL REMEI</h1>
-                        <p className="text-[10px] uppercase font-black text-gray-400">MESA {tableId}</p>
+                        <p className="text-[10px] uppercase font-black text-gray-400">{t.table} {tableId}</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <button
@@ -1277,16 +1723,28 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         </div>
                         <div className="text-left">
                             <p className={`text-[8px] font-black uppercase tracking-widest ${customer ? 'text-gray-500' : 'text-gray-400'}`}>
-                                {customer ? 'Panel de Usuario' : 'Mi Cuenta'}
+                                {customer ? t.myAccount : t.login}
                             </p>
                             <p className={`text-xs font-black italic truncate max-w-[120px] ${customer ? 'text-white' : 'text-gray-500'}`}>
-                                {customer ? customer.name.split(' ')[0].toUpperCase() : 'ENTRAR / REGISTRO'}
+                                {customer ? customer.name.split(' ')[0].toUpperCase() : t.welcome.toUpperCase()}
                             </p>
                         </div>
                     </button>
                 </div>
 
                 <div className="space-y-4 flex-shrink-0">
+                    <div className="flex gap-2 mb-4 px-2">
+                        {(['es', 'ca', 'en'] as const).map((lang) => (
+                            <button
+                                key={lang}
+                                onClick={() => setLanguage(lang)}
+                                className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${language === lang ? 'bg-black text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                            >
+                                {lang}
+                            </button>
+                        ))}
+                    </div>
+
                     <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">Categorías</p>
                     {CATEGORIES.map((cat) => (
                         <button
@@ -1295,7 +1753,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all duration-300 ${activeCategory === cat.id ? 'bg-orange-50 text-orange-600 shadow-sm shadow-orange-100' : 'text-gray-500 hover:bg-gray-50'}`}
                         >
                             <span className="text-xl">{cat.icon}</span>
-                            {cat.name}
+                            {t.categories[cat.id as keyof typeof t.categories] || cat.name}
                         </button>
                     ))}
                 </div>
@@ -1333,12 +1791,12 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
                         <Wallet className="w-12 h-12" />
                     </div>
-                    <p className="text-[10px] font-black uppercase text-orange-500 mb-4 tracking-[0.2em]">Mi Crédito El Remei</p>
+                    <p className="text-[10px] font-black uppercase text-orange-500 mb-4 tracking-[0.2em]">{t.myCredit}</p>
                     {customer ? (
                         <div className="space-y-4">
                             <div>
                                 <p className="text-2xl font-black italic">{Number(customer.current_debt).toFixed(2)}€</p>
-                                <p className="text-[9px] text-gray-400 font-black uppercase">Deuda acumulada</p>
+                                <p className="text-[9px] text-gray-400 font-black uppercase">{t.accumulatedDebt}</p>
                             </div>
                             <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
                                 <div
@@ -1347,9 +1805,9 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 />
                             </div>
                             <div className="flex justify-between items-center text-[9px] font-black uppercase text-gray-400">
-                                <span>Límite: {customer.credit_limit}€</span>
+                                <span>{t.limit}: {customer.credit_limit}€</span>
                                 <span className={Number(customer.current_debt) > Number(customer.credit_limit) * 0.8 ? 'text-red-400' : 'text-emerald-400'}>
-                                    {Math.max(0, Number(customer.credit_limit) - Number(customer.current_debt)).toFixed(2)}€ disp.
+                                    {Math.max(0, Number(customer.credit_limit) - Number(customer.current_debt)).toFixed(2)}€ {t.available}
                                 </span>
                             </div>
                             {Number(customer.current_debt) > 0 && (
@@ -1358,26 +1816,26 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     onClick={handlePayDebt}
                                     className="w-full mt-2 bg-emerald-600/20 text-emerald-400 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-emerald-600/30 transition-all border border-emerald-500/20 disabled:opacity-50"
                                 >
-                                    {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'PAGAR DEUDA ONLINE'}
+                                    {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : t.payOnline}
                                 </button>
                             )}
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <p className="text-[11px] font-medium text-gray-300 leading-relaxed italic">"Paga mañana tus consumos y lleva el control de tu cuenta."</p>
+                            <p className="text-[11px] font-medium text-gray-300 leading-relaxed italic">{t.payLaterPromo}</p>
                             <button
                                 onClick={() => setIsRegistrationOpen(true)}
                                 className="w-full bg-orange-600 py-3 rounded-2xl text-[10px] font-black uppercase hover:bg-orange-500 transition-all shadow-lg shadow-orange-950"
                             >
-                                ACTIVAR CRÉDITO
+                                {t.activateCredit}
                             </button>
                         </div>
                     )}
                 </div>
 
                 <div className="mt-12 p-6 bg-gray-50 rounded-3xl border border-gray-100 mb-12">
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-2">Ubicación</p>
-                    <p className="text-sm font-bold text-gray-700">Mesa {tableId}</p>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-2">{t.location}</p>
+                    <p className="text-sm font-bold text-gray-700">{t.table} {tableId}</p>
                 </div>
             </aside>
 
@@ -1389,7 +1847,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
                         <input
                             type="text"
-                            placeholder="Buscar plato..."
+                            placeholder={t.searchPlaceholder}
                             className="w-full pl-12 pr-4 py-3 bg-gray-100/50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500/20 text-sm font-medium"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -1403,7 +1861,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                         <input
                             type="text"
-                            placeholder="¿Qué te apetece hoy?"
+                            placeholder={t.searchPlaceholder}
                             className="w-full pl-10 pr-4 py-3 bg-gray-100/50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500/20 text-xs font-bold"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -1419,7 +1877,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             onClick={() => setActiveCategory(cat.id)}
                             className={`whitespace-nowrap px-6 py-3 rounded-xl font-bold text-sm transition-all ${activeCategory === cat.id ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-gray-100 text-gray-500'}`}
                         >
-                            {cat.icon} {cat.name}
+                            {cat.icon} {t.categories[cat.id as keyof typeof t.categories] || cat.name}
                         </button>
                     ))}
                 </div>
@@ -1430,19 +1888,19 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         onClick={() => setActiveFilters(f => ({ ...f, favorites: !f.favorites }))}
                         className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border transition-all ${activeFilters.favorites ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}
                     >
-                        <Plus className={`w-3 h-3 ${activeFilters.favorites ? 'rotate-45' : ''} transition-transform`} /> Favoritos
+                        <Plus className={`w-3 h-3 ${activeFilters.favorites ? 'rotate-45' : ''} transition-transform`} /> {t.favorites}
                     </button>
                     <button
                         onClick={() => setActiveFilters(f => ({ ...f, vegan: !f.vegan }))}
                         className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border transition-all ${activeFilters.vegan ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}
                     >
-                        🌱 Vegano
+                        🌱 {t.vegan}
                     </button>
                     <button
                         onClick={() => setActiveFilters(f => ({ ...f, glutenFree: !f.glutenFree }))}
                         className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border transition-all ${activeFilters.glutenFree ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}
                     >
-                        🌾 Sin Gluten
+                        🌾 {t.glutenFree}
                     </button>
                 </div>
 
@@ -1453,9 +1911,9 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-white font-black italic uppercase text-xs tracking-widest flex items-center gap-2">
                                     <div className="w-1.5 h-4 bg-orange-500 rounded-full"></div>
-                                    Mis Pedidos Actuales
+                                    {t.myCurrentOrders}
                                 </h3>
-                                <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full font-black uppercase">En curso</span>
+                                <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full font-black uppercase">{t.inProgress}</span>
                             </div>
                             <div className="space-y-4 max-h-48 overflow-y-auto no-scrollbar">
                                 {activeOrders.flatMap((o, oi) => o.items.map((item: any, ii: number) => {
@@ -1468,7 +1926,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             <div className="flex justify-between items-start mb-3">
                                                 <span className="text-white font-bold text-sm">{item.name}</span>
                                                 <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${isReady ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                                                    {isReady ? 'Listo' : 'Preparando'}
+                                                    {isReady ? t.status.ready : t.status.cooking}
                                                 </span>
                                             </div>
 
@@ -1501,8 +1959,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 <ShieldCheck className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-black italic uppercase tracking-widest text-orange-950">Sugerencias del Chef</h3>
-                                <p className="text-[10px] font-bold text-orange-600/60 uppercase">Basado en tus gustos y el día de hoy</p>
+                                <h3 className="text-sm font-black italic uppercase tracking-widest text-orange-950">{t.chefSuggestions}</h3>
+                                <p className="text-[10px] font-bold text-orange-600/60 uppercase">{t.basedOn}</p>
                             </div>
                         </div>
                         <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4">
@@ -1529,10 +1987,10 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 <div className="flex-1 px-4 md:px-12 py-6 pb-40">
                     <div className="flex justify-between items-end mb-8">
                         <h2 className="text-3xl md:text-4xl font-black text-gray-900 capitalize">
-                            {CATEGORIES.find(c => c.id === activeCategory)?.name}
+                            {t.categories[activeCategory as keyof typeof t.categories] || CATEGORIES.find(c => c.id === activeCategory)?.name}
                         </h2>
                         <p className="text-sm text-gray-400 font-bold">
-                            {menu.filter(p => p.category === activeCategory).length} especialidades
+                            {menu.filter(p => p.category === activeCategory).length} {t.specialties}
                         </p>
                     </div>
 
@@ -1582,13 +2040,13 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             {/* Badges Premium */}
                                             <div className="absolute top-4 left-4 flex flex-col gap-2">
                                                 {product.is_favorite && (
-                                                    <div className="bg-red-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">Favorito</div>
+                                                    <div className="bg-red-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">{t.favorites}</div>
                                                 )}
                                                 {product.is_vegan && (
-                                                    <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">Vegano</div>
+                                                    <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">{t.vegan}</div>
                                                 )}
                                                 {product.is_gluten_free && (
-                                                    <div className="bg-amber-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">Sin Gluten</div>
+                                                    <div className="bg-amber-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">{t.glutenFree}</div>
                                                 )}
                                             </div>
 
@@ -1608,7 +2066,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         ) : (
                             <div className="col-span-full py-20 flex flex-col items-center opacity-20">
                                 <Utensils className="w-20 h-20 mb-4" />
-                                <p className="text-2xl font-black uppercase italic text-center px-4">Esta categoría está vacía por ahora</p>
+                                <p className="text-2xl font-black uppercase italic text-center px-4">{t.emptyCategory}</p>
                             </div>
                         )}
                     </div>
@@ -1627,7 +2085,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                 <ShoppingCart className="w-7 h-7" />
                             </div>
                             <div className="text-left">
-                                <p className="text-[10px] font-black opacity-80 uppercase tracking-widest">Revisar Pedido</p>
+                                <p className="text-[10px] font-black opacity-80 uppercase tracking-widest">{t.reviewOrder}</p>
                                 <p className={`font-black italic ${cart.length > 0 ? 'text-sm leading-tight' : 'text-xl'}`}>
                                     {cart.length > 0
                                         ? cart[cart.length - 1].product.name
@@ -1659,8 +2117,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
                                         <Star className="w-10 h-10 fill-current" />
                                     </div>
-                                    <h2 className="text-3xl font-black italic tracking-tighter leading-8 mb-2">¿QUÉ TAL LA COMIDA?</h2>
-                                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mb-8">Tu opinión nos ayuda a mejorar</p>
+                                    <h2 className="text-3xl font-black italic tracking-tighter leading-8 mb-2">{t.rating.title}</h2>
+                                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mb-8">{t.rating.subtitle}</p>
 
                                     <div className="flex justify-center gap-3 mb-10">
                                         {[1, 2, 3, 4, 5].map((s) => (
@@ -1680,7 +2138,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                 setIsTipPhase(true);
                                             } else {
                                                 setIsRatingOpen(false);
-                                                toast.success("✨ ¡Gracias por tu valoración!", { position: "top-center" });
+                                                toast.success(t.rating.thanks, { position: "top-center" });
                                                 setTimeout(() => {
                                                     setRating(0);
                                                 }, 500);
@@ -1689,7 +2147,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         disabled={rating === 0}
                                         className="w-full bg-zinc-900 text-white py-5 rounded-3xl font-black italic text-lg shadow-xl active:scale-95 transition-all disabled:opacity-30 disabled:grayscale"
                                     >
-                                        ENVIAR VALORACIÓN
+                                        {t.rating.send}
                                     </button>
 
                                     <button
@@ -1699,20 +2157,20 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         }}
                                         className="mt-4 text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]"
                                     >
-                                        Quizás más tarde
+                                        {t.rating.later}
                                     </button>
                                 </>
                             ) : !hasTipped ? (
                                 <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }}>
-                                    <h2 className="text-2xl font-black italic tracking-tighter leading-7 mb-2">¿QUIERES TENER UN DETALLE CON EL EQUIPO?</h2>
-                                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[9px] mb-8">Tu gesto marca la diferencia</p>
+                                    <h2 className="text-2xl font-black italic tracking-tighter leading-7 mb-2">{t.rating.tipTitle}</h2>
+                                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[9px] mb-8">{t.rating.tipSubtitle}</p>
 
                                     <div className="grid grid-cols-2 gap-3 mb-6">
                                         {[
-                                            { id: 2, icon: <Coffee className="w-5 h-5" />, label: 'Café', amount: '2€' },
-                                            { id: 5, icon: <Beer className="w-5 h-5" />, label: 'Caña', amount: '5€' },
-                                            { id: 10, icon: <Pizza className="w-5 h-5" />, label: 'Cena', amount: '10€' },
-                                            { id: -1, icon: <Wallet className="w-5 h-5" />, label: 'Libre', amount: '...' },
+                                            { id: 2, icon: <Coffee className="w-5 h-5" />, label: t.rating.options.coffee, amount: '2€' },
+                                            { id: 5, icon: <Beer className="w-5 h-5" />, label: t.rating.options.beer, amount: '5€' },
+                                            { id: 10, icon: <Pizza className="w-5 h-5" />, label: t.rating.options.dinner, amount: '10€' },
+                                            { id: -1, icon: <Wallet className="w-5 h-5" />, label: t.rating.options.custom, amount: '...' },
                                         ].map((option) => (
                                             <button
                                                 key={option.id}

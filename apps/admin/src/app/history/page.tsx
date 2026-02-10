@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { History, ArrowLeft, Clock, CreditCard, Utensils, Search } from 'lucide-react';
+import { History, ArrowLeft, Clock, CreditCard, Utensils, Search, Trash2 } from 'lucide-react';
 import { Order } from '@/types';
 import Link from 'next/link';
 
@@ -28,6 +28,20 @@ export default function HistoryPage() {
             .order('updated_at', { ascending: false });
         if (data) setOrders(data);
         setLoading(false);
+    };
+
+    const deleteOrder = async (id: string) => {
+        const { error } = await supabase
+            .from('orders')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting order:', error);
+            alert('Error al eliminar el pedido');
+        } else {
+            setOrders(prev => prev.filter(o => o.id !== id));
+        }
     };
 
     const filteredOrders = orders.filter(o =>
@@ -117,6 +131,18 @@ export default function HistoryPage() {
                                     <CreditCard className="w-4 h-4" />
                                     <span className="text-[10px] font-bold uppercase tracking-tighter">Stripe / QR</span>
                                 </div>
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        if (confirm('¿Estás seguro de eliminar este registro del historial?')) {
+                                            deleteOrder(order.id);
+                                        }
+                                    }}
+                                    className="mt-4 flex items-center gap-2 text-red-500 hover:text-red-400 text-[10px] font-black uppercase tracking-widest transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Eliminar
+                                </button>
                             </div>
                         </div>
                     ))

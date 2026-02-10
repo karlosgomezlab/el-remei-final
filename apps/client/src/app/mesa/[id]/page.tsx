@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw, Coffee, Beer, Pizza, Heart, Flame, Truck, PartyPopper } from 'lucide-react';
+import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw, Coffee, Beer, Pizza, Heart, Flame, Truck, PartyPopper, Wine, CakeSlice } from 'lucide-react';
 import { toast, ToastOptions } from 'react-toastify';
 import confetti from 'canvas-confetti';
 import { Product, Customer } from '@/types/shared';
 import { getProductImage } from '@/utils/productImages';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CATEGORIES = [
@@ -44,6 +45,7 @@ async function generateVeriFactuHash(currentData: any, previousHash: string = ''
 }
 
 export default function MenuCliente({ params }: { params: { id: string } }) {
+    const router = useRouter();
     const tableId = params.id;
 
     // Inicializar Supabase
@@ -125,7 +127,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
 
                     // Función auxiliar para notificaciones personalizadas con diseño "Dark Glass"
-                    const showCustomNotification = (type: 'cooking' | 'ready' | 'delivering' | 'served', title: string, message: string) => {
+                    const showCustomNotification = (type: 'cooking' | 'ready' | 'delivering' | 'served', title: string, message: string, IconOverride?: any) => {
                         const config = {
                             cooking: {
                                 icon: Flame,
@@ -153,7 +155,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             }
                         };
 
-                        const { icon: Icon, color, bg, border } = config[type];
+                        const { icon: DefaultIcon, color, bg, border } = config[type];
+                        const Icon = IconOverride || DefaultIcon;
 
                         toast(
                             <div className="flex flex-row items-center gap-4 w-full">
@@ -184,6 +187,36 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         );
                     };
 
+                    const getSmartMessage = (item: any, status: 'cooking' | 'ready') => {
+                        const cat = item.category?.toLowerCase() || 'otros';
+
+                        if (status === 'cooking') {
+                            if (['segundo', 'carnes', 'pescados', 'pizza', 'hamburguesas'].includes(cat)) {
+                                return { title: 'En el fuego 🔥', msg: `Tu ${item.name} se está cocinando.`, icon: Flame };
+                            }
+                            if (['entrante', 'primero', 'ensaladas', 'tapas'].includes(cat)) {
+                                return { title: 'Preparando...', msg: `El chef está preparando tu ${item.name}.`, icon: Utensils };
+                            }
+                            if (['postre', 'dulces'].includes(cat)) {
+                                return { title: 'Momento Dulce 🍰', msg: `Preparando un momento dulce: ${item.name}.`, icon: CakeSlice };
+                            }
+                            if (['bebida', 'vinos', 'cervezas', 'refrescos'].includes(cat)) {
+                                return { title: 'Marchando bebida', msg: `Tu ${item.name} está en marcha.`, icon: Wine };
+                            }
+                            if (['cafe', 'infusiones'].includes(cat)) {
+                                return { title: 'Cafetería', msg: `Barista en acción con tu ${item.name}.`, icon: Coffee };
+                            }
+                            return { title: 'En cocina', msg: `Preparando tu ${item.name}...`, icon: Utensils };
+                        }
+
+                        // Status READY
+                        if (status === 'ready') {
+                            return { title: '¡Listo para servir! ✅', msg: `Tu ${item.name} ya está terminado.`, icon: CheckCircle };
+                        }
+
+                        return { title: 'Actualización', msg: `Estado: ${status}`, icon: CheckCircle };
+                    };
+
                     // 1. Detectar cambios a nivel de PLATO (Granularidad)
                     if (newOrder.items && oldOrder && oldOrder.items) {
                         newOrder.items.forEach((newItem: any, index: number) => {
@@ -192,12 +225,11 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
                             // Si el estado ha cambiado y es relevante
                             if (newItem.status !== oldItem.status) {
-                                if (newItem.status === 'cooking') {
+                                if (newItem.status === 'cooking' || newItem.status === 'ready') {
                                     if (navigator.vibrate) navigator.vibrate([100]);
-                                    showCustomNotification('cooking', 'Preparando...', `Tu ${newItem.name} está en el fuego 🔥`);
-                                } else if (newItem.status === 'ready') {
-                                    if (navigator.vibrate) navigator.vibrate([100, 100]);
-                                    showCustomNotification('ready', '¡Plato Listo!', `Tu ${newItem.name} ya está terminado ✅`);
+
+                                    const smart = getSmartMessage(newItem, newItem.status);
+                                    showCustomNotification(newItem.status, smart.title, smart.msg, smart.icon);
                                 }
                             }
                         });
@@ -1707,16 +1739,11 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     <button
                                         onClick={() => {
                                             if (selectedTip) {
-                                                // Lógica real de pago iría aquí
-                                                if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
-                                                confetti({
-                                                    particleCount: 150,
-                                                    spread: 70,
-                                                    origin: { y: 0.6 },
-                                                    zIndex: 1000,
-                                                    colors: ['#f97316', '#10b981', '#ffffff']
-                                                });
-                                                setHasTipped(true);
+                                                const tipAmount = selectedTip === -1
+                                                    ? parseFloat(customTip)
+                                                    : selectedTip; // Los IDs coinciden con el monto (2, 5, 10)
+
+                                                router.push(`/mesa/${params.id}/checkout?amount=${tipAmount}&concept=Propina%20Equipo&is_tip=true`);
                                             }
                                         }}
                                         disabled={!selectedTip || (selectedTip === -1 && (!customTip || Number(customTip) <= 0))}

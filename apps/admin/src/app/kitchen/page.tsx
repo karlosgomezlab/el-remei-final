@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { ChefHat, Clock, CheckCircle2, AlertCircle, Archive } from 'lucide-react';
+import Link from 'next/link';
 import { Order } from '@/types';
 
 const supabase = createClient(
@@ -121,15 +122,18 @@ export default function KitchenView() {
                     <div className="bg-zinc-900 px-6 py-3 rounded-2xl border border-zinc-800">
                         <span className="text-zinc-500 text-xs font-bold uppercase block tracking-widest">En Cola</span>
                         <span className="text-2xl font-black text-orange-500">
-                            {orders.filter(order => order.items.some((item: any) => item.category !== 'bebida')).length}
+                            {orders.filter(order => Array.isArray(order.items) && order.items.some((item: any) => item.category !== 'bebida')).length}
                         </span>
                     </div>
+                    <Link href="/kitchen/history" className="bg-zinc-900 aspect-square flex items-center justify-center rounded-2xl border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 transition-all group" title="Ver Historial de Hoy">
+                        <Archive className="w-6 h-6 text-zinc-500 group-hover:text-white transition-colors" />
+                    </Link>
                 </div>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {orders
-                    .filter(order => order.items.some((item: any) => item.category !== 'bebida'))
+                    .filter(order => Array.isArray(order.items) && order.items.some((item: any) => item.category !== 'bebida'))
                     .map((order) => (
                         <div
                             key={order.id}

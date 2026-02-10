@@ -296,7 +296,8 @@ export default function ProductsPage() {
                                                     const fileName = `${Math.random()}.${fileExt}`;
                                                     const { error: uploadError } = await supabase.storage.from('menu-images').upload(fileName, file);
                                                     if (uploadError) {
-                                                        toast.error('Error subiendo imagen');
+                                                        console.error('Error uploading image:', uploadError);
+                                                        toast.error(`Error subiendo imagen: ${uploadError.message}`);
                                                     } else {
                                                         const { data } = supabase.storage.from('menu-images').getPublicUrl(fileName);
                                                         setEditingProduct({ ...editingProduct!, image_url_2: data.publicUrl });

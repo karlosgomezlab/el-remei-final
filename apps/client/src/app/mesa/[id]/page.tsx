@@ -194,7 +194,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             if (['segundo', 'carnes', 'pescados', 'pizza', 'hamburguesas'].includes(cat)) {
                                 return { title: 'En el fuego 🔥', msg: `Tu ${item.name} se está cocinando.`, icon: Flame };
                             }
-                            if (['entrante', 'primero', 'ensaladas', 'tapas'].includes(cat)) {
+                            if (['entrante', 'primero', 'ensaladas', 'tapas', 'bocadillos'].includes(cat)) {
                                 return { title: 'Preparando...', msg: `El chef está preparando tu ${item.name}.`, icon: Utensils };
                             }
                             if (['postre', 'dulces'].includes(cat)) {
@@ -206,7 +206,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             if (['cafe', 'infusiones'].includes(cat)) {
                                 return { title: 'Cafetería', msg: `Barista en acción con tu ${item.name}.`, icon: Coffee };
                             }
-                            return { title: 'En cocina', msg: `Preparando tu ${item.name}...`, icon: Utensils };
+                            // Default fallback
+                            return { title: 'Preparando...', msg: `El chef está preparando tu ${item.name}.`, icon: Utensils };
                         }
 
                         // Status READY

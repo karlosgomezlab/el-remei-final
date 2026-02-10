@@ -188,25 +188,30 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     };
 
                     const getSmartMessage = (item: any, status: 'cooking' | 'ready') => {
-                        const cat = item.category?.toLowerCase() || 'otros';
+                        // Limpieza agresiva de categoría: si es null/undefined -> 'otros'
+                        const rawCat = item.category || 'otros';
+                        const cat = String(rawCat).toLowerCase().trim();
 
                         if (status === 'cooking') {
-                            if (['segundo', 'carnes', 'pescados', 'pizza', 'hamburguesas'].includes(cat)) {
-                                return { title: 'En el fuego 🔥', msg: `Tu ${item.name} se está cocinando.`, icon: Flame };
-                            }
-                            if (['entrante', 'primero', 'ensaladas', 'tapas', 'bocadillos'].includes(cat)) {
-                                return { title: 'Preparando...', msg: `El chef está preparando tu ${item.name}.`, icon: Utensils };
-                            }
-                            if (['postre', 'dulces'].includes(cat)) {
-                                return { title: 'Momento Dulce 🍰', msg: `Preparando un momento dulce: ${item.name}.`, icon: CakeSlice };
-                            }
+                            // 1. BEBIDAS Y CAFÉS
                             if (['bebida', 'vinos', 'cervezas', 'refrescos'].includes(cat)) {
                                 return { title: 'Marchando bebida', msg: `Tu ${item.name} está en marcha.`, icon: Wine };
                             }
-                            if (['cafe', 'infusiones'].includes(cat)) {
+                            if (['cafe', 'infusiones', 'cafes'].includes(cat)) {
                                 return { title: 'Cafetería', msg: `Barista en acción con tu ${item.name}.`, icon: Coffee };
                             }
-                            // Default fallback
+
+                            // 2. FUEGO (Solo segundos y platos fuertes)
+                            if (['segundo', 'carnes', 'pescados', 'pizza', 'hamburguesas', 'brasa'].includes(cat)) {
+                                return { title: 'En el fuego 🔥', msg: `Tu ${item.name} está en la parrilla.`, icon: Flame };
+                            }
+
+                            // 3. TODO LO DEMÁS (Entrantes, Primeros, Postres, Ensaladas, Errores...) -> PREPARANDO
+                            if (['postre', 'dulces'].includes(cat)) {
+                                return { title: 'Momento Dulce 🍰', msg: `Preparando un momento dulce: ${item.name}.`, icon: CakeSlice };
+                            }
+
+                            // DEFAULT ABSOLUTO
                             return { title: 'Preparando...', msg: `El chef está preparando tu ${item.name}.`, icon: Utensils };
                         }
 

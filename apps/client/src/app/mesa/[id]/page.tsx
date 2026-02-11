@@ -2199,7 +2199,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             <div key={idx} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
                                                 <div className="flex justify-between items-start mb-4">
                                                     <div>
-                                                        <p className="text-[10px] font-black text-gray-400 uppercase">{t.table} {order.table_number} • {new Date(order.created_at).toLocaleDateString()}</p>
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase">{t.table} {order.table_number} • {order.created_at ? new Date(order.created_at).toLocaleDateString() : ''}</p>
                                                         <p className="text-xs font-black text-zinc-900 uppercase italic mt-1">{order.items.length} {t.profile.products}</p>
                                                     </div>
                                                     <div className="text-right">

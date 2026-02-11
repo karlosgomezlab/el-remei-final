@@ -72,7 +72,9 @@ export default function ProductsPage() {
             image_url_2: '',
             is_vegan: false,
             is_gluten_free: false,
-            is_favorite: false
+            is_favorite: false,
+            is_chef_suggestion: false,
+            is_top_suggestion: false
         });
         setIsModalOpen(true);
     };
@@ -99,7 +101,9 @@ export default function ProductsPage() {
                 is_available: rest.is_available,
                 is_vegan: rest.is_vegan,
                 is_gluten_free: rest.is_gluten_free,
-                is_favorite: rest.is_favorite
+                is_favorite: rest.is_favorite,
+                is_chef_suggestion: rest.is_chef_suggestion,
+                is_top_suggestion: rest.is_top_suggestion
             };
 
             let error;
@@ -245,7 +249,28 @@ export default function ProductsPage() {
                                             onClick={() => setEditingProduct({ ...editingProduct!, is_favorite: !editingProduct?.is_favorite })}
                                             className={`px-6 py-3 rounded-full text-[10px] font-black uppercase border transition-all ${editingProduct?.is_favorite ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-white/5 border-white/5 text-gray-600'}`}
                                         >
-                                            Favorito/Recomendado
+                                            Favorito
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingProduct({ ...editingProduct!, is_chef_suggestion: !editingProduct?.is_chef_suggestion })}
+                                            className={`px-6 py-3 rounded-full text-[10px] font-black uppercase border transition-all ${editingProduct?.is_chef_suggestion ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400' : 'bg-white/5 border-white/5 text-gray-600'}`}
+                                        >
+                                            Sugerencia Chef
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const isTop = !editingProduct?.is_top_suggestion;
+                                                setEditingProduct({
+                                                    ...editingProduct!,
+                                                    is_top_suggestion: isTop,
+                                                    is_chef_suggestion: isTop ? true : editingProduct?.is_chef_suggestion
+                                                });
+                                            }}
+                                            className={`px-6 py-3 rounded-full text-[10px] font-black uppercase border transition-all ${editingProduct?.is_top_suggestion ? 'bg-purple-500/20 border-purple-500/50 text-purple-400' : 'bg-white/5 border-white/5 text-gray-600'}`}
+                                        >
+                                            TOP Sugerencia
                                         </button>
                                     </div>
                                 </div>
@@ -426,6 +451,8 @@ export default function ProductsPage() {
                                                     {product.is_favorite && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
                                                     {product.is_vegan && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider border border-green-500/20">Vegano</span>}
                                                     {product.is_gluten_free && <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider border border-amber-500/20">Gluten Free</span>}
+                                                    {product.is_chef_suggestion && <span className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider border border-indigo-500/20">👨‍🍳 Chef</span>}
+                                                    {product.is_top_suggestion && <span className="text-[10px] font-bold text-purple-500 bg-purple-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider border border-purple-500/20">🔥 TOP</span>}
                                                 </div>
                                                 <p className="text-sm font-medium text-gray-500 line-clamp-1">{product.description || 'Sin descripción'}</p>
                                                 <div className="text-2xl font-black italic text-gray-300">

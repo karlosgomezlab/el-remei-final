@@ -6,6 +6,8 @@ export interface Product {
     price: number;
     category: 'primero' | 'segundo' | 'postre' | 'bebida' | string;
     is_available: boolean;
+    is_chef_suggestion?: boolean;
+    is_top_suggestion?: boolean;
     created_at?: string;
 }
 

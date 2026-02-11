@@ -10,6 +10,8 @@ export interface Product {
     is_vegan?: boolean;
     is_gluten_free?: boolean;
     is_favorite?: boolean;
+    is_chef_suggestion?: boolean;
+    is_top_suggestion?: boolean;
     created_at?: string;
 }
 

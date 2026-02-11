@@ -19,6 +19,7 @@ export default function DashboardMesas() {
     const [isConnected, setIsConnected] = useState(true);
     const [waiterCalls, setWaiterCalls] = useState<any[]>([]);
     const ordersRef = useRef<Order[]>([]);
+    const notifiedItemsRef = useRef<Set<string>>(new Set());
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
@@ -141,16 +142,23 @@ export default function DashboardMesas() {
                     );
 
                     newReadyItems.forEach((item: any) => {
-                        toast('🍽️ ¡PLATO LISTO!', {
-                            description: `${item.name} para Mesa ${payload.new.table_number}`,
-                            duration: 8000,
-                            style: {
-                                background: '#10b981',
-                                color: '#fff',
-                                border: 'none',
-                                fontWeight: 'bold'
-                            }
-                        });
+                        const notificationId = `${payload.new.id}-${item.id || item.name}-ready`;
+                        if (!notifiedItemsRef.current.has(notificationId)) {
+                            notifiedItemsRef.current.add(notificationId);
+
+                            toast('🍽️ ¡PLATO LISTO!', {
+                                description: `${item.name} para Mesa ${payload.new.table_number}`,
+                                duration: 8000,
+                                style: {
+                                    background: 'rgba(16, 185, 129, 0.9)',
+                                    color: '#fff',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    backdropFilter: 'blur(10px)',
+                                    fontWeight: 'bold',
+                                    borderRadius: '1.25rem'
+                                }
+                            });
+                        }
                     });
                 }
                 setOrders((prev) => prev.map(o => o.id === payload.new.id ? payload.new : o));

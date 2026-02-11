@@ -13,6 +13,8 @@ export interface Product {
     // Bloque E: Nuevos campos
     is_daily_special?: boolean;
     daily_special_price?: number;
+    is_chef_suggestion?: boolean;
+    is_top_suggestion?: boolean;
     allergens?: string[];
     created_at?: string;
 }

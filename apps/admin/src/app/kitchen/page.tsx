@@ -97,10 +97,16 @@ export default function KitchenView() {
         if (payload.eventType === 'INSERT') {
             setOrders((prev) => [...prev, payload.new]);
         } else if (payload.eventType === 'UPDATE') {
+            // Si el estado es "ready" o "served", el plato ya no debe estar en la vista de cocina activa
             if (payload.new.status === 'ready' || payload.new.status === 'served') {
                 setOrders((prev) => prev.filter(o => o.id !== payload.new.id));
             } else {
-                setOrders((prev) => prev.map(o => o.id === payload.new.id ? payload.new : o));
+                // Actualizamos solo si el pedido existe y evitamos parpadeos si es posible
+                setOrders((prev) => {
+                    const exists = prev.find(o => o.id === payload.new.id);
+                    if (!exists) return prev;
+                    return prev.map(o => o.id === payload.new.id ? payload.new : o);
+                });
             }
         }
     };
@@ -114,7 +120,7 @@ export default function KitchenView() {
     };
 
     const advanceItemStatus = async (orderId: string, itemIdx: number) => {
-        // Use Ref to avoid race conditions with stale closures during rapid clicks
+        // Use Ref to avoid race conditions and functional update for setOrders
         const currentOrders = ordersRef.current;
         const order = currentOrders.find(o => o.id === orderId);
         if (!order) return;
@@ -127,6 +133,7 @@ export default function KitchenView() {
 
         if (!currentItem.status || currentItem.status === 'pending') {
             nextStatus = 'cooking';
+            isReady = false;
         } else if (currentItem.status === 'cooking') {
             nextStatus = 'ready';
             isReady = true;
@@ -142,18 +149,25 @@ export default function KitchenView() {
             newOrderStatus = 'cooking';
         }
 
-        // Optimistic update of Ref to handle next click immediately
-        const updatedOrders = currentOrders.map(o => o.id === orderId ? { ...o, items: newItems, status: newOrderStatus } : o);
-        ordersRef.current = updatedOrders;
+        // Optimistic update
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, items: newItems, status: newOrderStatus } : o));
 
-        // Actualizamos localmente (trigger re-render)
-        setOrders(updatedOrders);
+        try {
+            const { error } = await supabase
+                .from('orders')
+                .update({
+                    items: newItems,
+                    status: newOrderStatus,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', orderId);
 
-        // Guardamos en Supabase
-        await supabase
-            .from('orders')
-            .update({ items: newItems, status: newOrderStatus })
-            .eq('id', orderId);
+            if (error) throw error;
+        } catch (error) {
+            console.error("Error updating item status:", error);
+            // Revert on error if necessary, though handleRealtimeUpdate will eventually sync
+            fetchCookingOrders();
+        }
     };
 
     if (loading) return <div className="p-20 text-center text-white bg-zinc-950 min-h-screen font-black italic">CALENTANDO FOGONES...</div>;
@@ -212,9 +226,9 @@ export default function KitchenView() {
                     .map((order) => (
                         <div
                             key={order.id}
-                            className={`flex flex-col bg-zinc-900 rounded-[2rem] border-2 shadow-2xl overflow-hidden transition-all duration-500 ${order.status === 'pending' ? 'border-yellow-600 bg-yellow-600/5' : order.status === 'cooking' ? 'border-orange-600 bg-orange-600/5' : 'border-zinc-800'}`}
+                            className={`flex flex-col bg-zinc-900 rounded-[2rem] border-2 shadow-2xl overflow-hidden transition-all duration-500 ${order.status === 'pending' ? 'border-zinc-800 bg-zinc-900' : order.status === 'cooking' ? 'border-orange-600/30 bg-orange-600/5' : 'border-zinc-800'}`}
                         >
-                            <div className={`p-4 flex justify-between items-center ${order.status === 'pending' ? 'bg-yellow-600/20' : order.status === 'cooking' ? 'bg-orange-600/20' : 'bg-zinc-800/50'}`}>
+                            <div className={`p-4 flex justify-between items-center ${order.status === 'pending' ? 'bg-zinc-800/50' : order.status === 'cooking' ? 'bg-orange-600/20' : 'bg-zinc-800/50'}`}>
                                 <div className="flex items-center gap-2">
                                     <span className="bg-black text-white px-3 py-1 rounded-lg font-black text-lg">MESA {order.table_number}</span>
                                 </div>
@@ -229,37 +243,39 @@ export default function KitchenView() {
                                     {order.items.map((item: any, originalIdx: number) => {
                                         if (item.category === 'bebida') return null;
 
+                                        const isActuallyReady = item.status === 'ready' || item.is_ready || item.is_served;
+
                                         return (
                                             <li
                                                 key={originalIdx}
-                                                className={`flex justify-between items-center gap-4 p-3 rounded-xl transition-all border ${item.status === 'ready' ? 'bg-red-900/10 border-red-900/30' :
-                                                    item.status === 'cooking' ? 'bg-yellow-600/10 border-yellow-500/30' :
-                                                        'bg-zinc-800 border-zinc-700'
+                                                className={`flex justify-between items-center gap-4 p-3 rounded-xl transition-all border ${isActuallyReady ? 'bg-green-950/20 border-green-900/30' :
+                                                    item.status === 'cooking' ? 'bg-orange-600/10 border-orange-500/30' :
+                                                        'bg-zinc-800/50 border-zinc-700/50'
                                                     }`}
                                             >
                                                 <div className="flex gap-3 items-center min-w-0 flex-1">
-                                                    <span className={`${item.status === 'ready' ? 'bg-red-900/50 text-red-200' : item.status === 'cooking' ? 'bg-yellow-600 text-black' : 'bg-white text-black'} w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg flex-shrink-0`}>
-                                                        {item.qty || 1}
+                                                    <span className={`${isActuallyReady ? 'bg-green-600 text-white' : item.status === 'cooking' ? 'bg-orange-600 text-white' : 'bg-white text-black'} w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg flex-shrink-0 transition-colors`}>
+                                                        {isActuallyReady ? <CheckCircle2 className="w-5 h-5" /> : (item.qty || 1)}
                                                     </span>
                                                     <div className="flex flex-col">
-                                                        <span className={`font-black text-sm uppercase leading-tight ${item.status === 'ready' ? 'line-through text-red-500 opacity-60' : 'text-white'}`}>
+                                                        <span className={`font-black text-sm uppercase leading-tight ${isActuallyReady ? 'line-through text-zinc-500 opacity-60' : 'text-white'}`}>
                                                             {item.name}
                                                         </span>
-                                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${item.status === 'ready' ? 'text-red-700' : item.status === 'cooking' ? 'text-yellow-500' : 'text-zinc-500'}`}>
-                                                            {item.status === 'cooking' ? '🔥 Preparando...' : item.status === 'ready' ? '🛑 Terminado' : '⏳ Pendiente'}
+                                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isActuallyReady ? 'text-green-500' : item.status === 'cooking' ? 'text-orange-500' : 'text-zinc-500'}`}>
+                                                            {item.status === 'cooking' ? '🔥 Preparando...' : isActuallyReady ? '✅ Terminado' : '⏳ Pendiente'}
                                                         </span>
                                                     </div>
                                                 </div>
 
                                                 <button
                                                     onClick={() => advanceItemStatus(order.id, originalIdx)}
-                                                    className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all active:scale-95 shadow-lg ${item.status === 'ready' ? 'bg-zinc-800 text-zinc-600 ring-1 ring-zinc-700 cursor-not-allowed' :
-                                                        item.status === 'cooking' ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20' :
-                                                            'bg-yellow-600 hover:bg-yellow-500 text-white shadow-yellow-900/20'
+                                                    className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all active:scale-95 shadow-lg ${isActuallyReady ? 'bg-zinc-800 text-zinc-600 ring-1 ring-zinc-700 cursor-not-allowed opacity-40' :
+                                                        item.status === 'cooking' ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/20' :
+                                                            'bg-yellow-500 hover:bg-yellow-400 text-black shadow-yellow-900/10'
                                                         }`}
-                                                    disabled={item.status === 'ready'}
+                                                    disabled={isActuallyReady}
                                                 >
-                                                    {item.status === 'ready' ? (
+                                                    {isActuallyReady ? (
                                                         <CheckCircle2 className="w-4 h-4" />
                                                     ) : item.status === 'cooking' ? (
                                                         <>
@@ -267,7 +283,7 @@ export default function KitchenView() {
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <ChefHat className="w-4 h-4 bg-black/20 rounded-full p-0.5" /> EMPEZAR
+                                                            <ChefHat className="w-4 h-4 bg-black/10 rounded-full p-0.5" /> EMPEZAR
                                                         </>
                                                     )}
                                                 </button>

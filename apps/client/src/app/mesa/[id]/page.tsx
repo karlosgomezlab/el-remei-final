@@ -56,7 +56,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     const [menu, setMenu] = useState<Product[]>([]);
     const [cart, setCart] = useState<{ product: Product; qty: number }[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeCategory, setActiveCategory] = useState('primero');
+    const [activeCategory, setActiveCategory] = useState('entrante');
     const [totalOrders, setTotalOrders] = useState(0);
     const [activeOrders, setActiveOrders] = useState<any[]>([]);
     const [isCartOpen, setIsCartOpen] = useState(false);
@@ -107,6 +107,9 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     // --- BLOQUE E: Happy Hour ---
     const [happyHourConfig, setHappyHourConfig] = useState<HappyHourConfig | null>(null);
     const [isHappyHour, setIsHappyHour] = useState(false);
+
+    // --- BLOQUE F: Notificaciones Propias ---
+    const [popups, setPopups] = useState<any[]>([]);
 
     // --- BLOQUE A: Ruleta del Postre ---
     const [prizes, setPrizes] = useState<Prize[]>([]);
@@ -963,64 +966,23 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
 
                     // Función auxiliar para notificaciones personalizadas con diseño "Dark Glass"
+                    const addPopup = (type: string, title: string, msg: string, Icon: any) => {
+                        const id = Math.random().toString(36).substr(2, 9);
+                        setPopups(prev => [...prev, { id, type, title, msg, Icon }]);
+                        setTimeout(() => {
+                            setPopups(prev => prev.filter(p => p.id !== id));
+                        }, 5000);
+                    };
+
                     const showCustomNotification = (type: 'cooking' | 'ready' | 'delivering' | 'served', title: string, message: string, IconOverride?: any) => {
                         const config = {
-                            cooking: {
-                                icon: Flame,
-                                color: 'text-amber-500',
-                                bg: 'bg-amber-500/20',
-                                border: 'border-amber-500/20'
-                            },
-                            ready: {
-                                icon: CheckCircle,
-                                color: 'text-green-500',
-                                bg: 'bg-green-500/20',
-                                border: 'border-green-500/20'
-                            },
-                            delivering: {
-                                icon: Truck,
-                                color: 'text-blue-500',
-                                bg: 'bg-blue-500/20',
-                                border: 'border-blue-500/20'
-                            },
-                            served: {
-                                icon: PartyPopper,
-                                color: 'text-purple-500',
-                                bg: 'bg-purple-500/20',
-                                border: 'border-purple-500/20'
-                            }
+                            cooking: Flame,
+                            ready: CheckCircle,
+                            delivering: Truck,
+                            served: PartyPopper
                         };
-
-                        const { icon: DefaultIcon, color, bg, border } = config[type];
-                        const Icon = IconOverride || DefaultIcon;
-
-                        toast(
-                            <div className="flex flex-row items-center gap-4 w-full">
-                                <div className={`p-3 rounded-full ${bg} ${color} shrink-0`}>
-                                    <Icon size={24} strokeWidth={2.5} />
-                                </div>
-                                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                                    <h4 className={`font-bold text-lg leading-tight text-white`}>
-                                        {title}
-                                    </h4>
-                                    <p className="text-zinc-400 text-sm font-medium leading-tight truncate">
-                                        {message}
-                                    </p>
-                                </div>
-                            </div>,
-                            {
-                                position: "top-center",
-                                autoClose: 5000,
-                                hideProgressBar: true,
-                                closeOnClick: true,
-                                pauseOnHover: true,
-                                draggable: true,
-                                className: '!bg-zinc-900/95 !backdrop-blur-xl !border !border-white/10 !rounded-2xl !shadow-2xl !p-4 !min-h-0 !w-auto !max-w-[90vw] !mx-auto !mt-4',
-                                bodyClassName: '!m-0 !p-0 !flex !items-center',
-                                icon: false,
-                                closeButton: false
-                            } as ToastOptions
-                        );
+                        const Icon = IconOverride || config[type];
+                        addPopup(type, title, message, Icon);
                     };
 
                     const getSmartMessage = (item: any, status: string) => {
@@ -1073,7 +1035,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             const oldItem = oldOrder.items[index];
                             if (!oldItem) return;
 
-                            const notificationKey = `${newOrder.id}-${index}-${newItem.status}`;
+                            const notificationKey = `${newOrder.id}-${newItem.id || index}-${newItem.status}`;
                             const relevantStatuses = ['cooking', 'ready', 'delivering', 'served'];
 
                             if (newItem.status !== oldItem.status && relevantStatuses.includes(newItem.status) && !lastNotifiedStatusRef.current[notificationKey]) {
@@ -1140,13 +1102,60 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
         if (data) setActiveOrders(data);
     };
 
+    // Generación dinámica de sugerencias (Chef > IA/Perfil > Negocio)
+    const generateChefSuggestions = (allProducts: Product[]) => {
+        // 1. Prioridad: Lo que el Chef ha marcado manualmente
+        const manualSuggestions = allProducts.filter(p => p.is_chef_suggestion || p.is_top_suggestion);
+
+        if (manualSuggestions.length > 0) {
+            // Aseguramos que el TOP esté primero
+            const sorted = [...manualSuggestions].sort((a, b) =>
+                (b.is_top_suggestion ? 1 : 0) - (a.is_top_suggestion ? 1 : 0)
+            );
+            setRecommendedPlates(sorted.slice(0, 4)); // Máximo 4 para el carrusel
+            return;
+        }
+
+        // 2. Si no hay marcas de Chef, tiramos de IA/Perfil (Preferencias del cliente)
+        if (customer && customerHistory.length > 0) {
+            // Buscamos categorías favoritas del cliente
+            const categories = customerHistory.flatMap(o => o.items.map(i => i.category));
+            const mostOrderedCategory = [...new Set(categories)].sort((a, b) =>
+                categories.filter(c => c === b).length - categories.filter(c => c === a).length
+            )[0];
+
+            if (mostOrderedCategory) {
+                const aiPicks = allProducts
+                    .filter(p => p.category === mostOrderedCategory)
+                    .sort(() => 0.5 - Math.random()) // Aleatoriedad dentro de su gusto
+                    .slice(0, 3);
+
+                if (aiPicks.length > 0) {
+                    setRecommendedPlates(aiPicks);
+                    return;
+                }
+            }
+        }
+
+        // 3. Fallback: Interés de Negocio (Platos con "is_favorite" o simplemente destacados)
+        const businessPicks = allProducts
+            .filter(p => p.is_favorite)
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3);
+
+        setRecommendedPlates(businessPicks.length > 0 ? businessPicks : allProducts.sort(() => 0.5 - Math.random()).slice(0, 3));
+    };
+
     const fetchMenu = async () => {
         try {
             const { data } = await supabase
                 .from('products')
                 .select('*, image_url')
                 .eq('is_available', true);
-            if (data) setMenu(data);
+            if (data) {
+                setMenu(data);
+                generateChefSuggestions(data);
+            }
 
             const { count } = await supabase
                 .from('orders')
@@ -2573,31 +2582,59 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
                 {/* AI Recommendations - NEW PREMIUM FEATURE */}
                 {recommendedPlates && recommendedPlates.length > 0 && searchQuery.trim() === '' && (
-                    <div className="px-4 md:px-12 py-8 bg-orange-50/30">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="bg-orange-600 p-2 rounded-xl shadow-lg shadow-orange-200">
-                                <ShieldCheck className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-black italic uppercase tracking-widest text-orange-950">{t.chefSuggestions}</h3>
-                                <p className="text-[10px] font-bold text-orange-600/60 uppercase">{t.basedOn}</p>
+                    <div className="px-4 md:px-12 py-10 bg-gradient-to-b from-orange-50/50 to-transparent">
+                        <div className="flex justify-between items-end mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-orange-600 p-2.5 rounded-2xl shadow-xl shadow-orange-200">
+                                    <Utensils className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black italic uppercase tracking-tighter text-orange-950">
+                                        {recommendedPlates.some(p => p.is_chef_suggestion) ? t.chefSuggestions : "TE PODRÍA GUSTAR..."}
+                                    </h3>
+                                    <p className="text-[10px] font-bold text-orange-600/60 uppercase tracking-widest">{t.basedOn}</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4">
+                        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 -mx-4 px-4 md:-mx-0 md:px-0">
                             {recommendedPlates.map(plate => (
-                                <div
+                                <motion.div
                                     key={`rec-${plate.id}`}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={() => addToCart(plate)}
-                                    className="min-w-[200px] bg-white p-4 rounded-[2rem] shadow-sm border border-orange-100 flex items-center gap-4 active:scale-95 transition-transform cursor-pointer"
+                                    className={`min-w-[240px] md:min-w-[280px] bg-white p-5 rounded-[2.5rem] shadow-[0_15px_35px_rgba(0,0,0,0.05)] border transition-all cursor-pointer relative overflow-hidden group ${plate.is_top_suggestion ? 'border-orange-500/30' : 'border-orange-100'}`}
                                 >
-                                    <div className="w-16 h-16 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0">
-                                        {plate.image_url ? <img src={plate.image_url} alt={plate.name} className="w-full h-full object-cover" /> : <Utensils className="w-6 h-6 m-auto opacity-10" />}
+                                    {plate.is_top_suggestion && (
+                                        <div className="absolute top-0 right-0 bg-orange-600 text-white px-5 py-1.5 rounded-bl-3xl text-[9px] font-black uppercase tracking-tighter z-10 shadow-lg flex items-center gap-2">
+                                            <Flame className="w-3 h-3 animate-pulse" />
+                                            ¡EL TOP!
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-5">
+                                        <div className="w-20 h-20 bg-gray-50 rounded-3xl overflow-hidden flex-shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                                            {plate.image_url ? (
+                                                <img src={plate.image_url} alt={plate.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center opacity-10">
+                                                    <Utensils className="w-8 h-8" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="text-sm font-black italic leading-tight mb-1 group-hover:text-orange-600 transition-colors truncate">{plate.name}</h4>
+                                            <p className="text-lg font-black text-orange-600">{plate.price.toFixed(2)}€</p>
+                                        </div>
+                                        <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
+                                            <Plus className="w-5 h-5" />
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[11px] font-black italic truncate">{plate.name}</p>
-                                        <p className="text-[10px] font-bold text-orange-600">{plate.price}€</p>
-                                    </div>
-                                </div>
+                                    {plate.is_chef_suggestion && !plate.is_top_suggestion && (
+                                        <div className="mt-3 pt-3 border-t border-orange-50 flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+                                            <span className="text-[9px] font-black uppercase text-gray-400">Recomendación Directa</span>
+                                        </div>
+                                    )}
+                                </motion.div>
                             ))}
                         </div>
                     </div>
@@ -2673,6 +2710,18 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                 )}
                                                 {isHappyHour && product.category === happyHourConfig?.applies_to && (
                                                     <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">{t.happyHour.badge}</div>
+                                                )}
+                                                {product.is_chef_suggestion && (
+                                                    <div className="bg-indigo-600 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg flex items-center gap-1">
+                                                        <Utensils className="w-2 h-2" />
+                                                        CHEF
+                                                    </div>
+                                                )}
+                                                {product.is_top_suggestion && (
+                                                    <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg flex items-center gap-1">
+                                                        <Flame className="w-2 h-2" />
+                                                        POPULAR
+                                                    </div>
                                                 )}
                                             </div>
 
@@ -3285,6 +3334,35 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     </>
                 )}
             </AnimatePresence>
+
+            {/* Sistema de Notificaciones Flotantes (Dark Glass) */}
+            <div className="fixed top-6 left-0 right-0 z-[2000] flex flex-col items-center gap-3 pointer-events-none px-4">
+                <AnimatePresence mode="popLayout">
+                    {popups.map((popup) => (
+                        <motion.div
+                            key={popup.id}
+                            initial={{ opacity: 0, y: -20, scale: 0.9, filter: 'blur(10px)' }}
+                            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, scale: 0.9, y: -10, filter: 'blur(10px)', transition: { duration: 0.2 } }}
+                            layout
+                            className="w-full max-w-sm pointer-events-auto bg-zinc-900/80 backdrop-blur-2xl border border-white/20 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-5 flex items-center gap-4 overflow-hidden relative group"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+                            <div className="p-3 rounded-2xl bg-zinc-800/80 border border-white/10 shadow-lg flex-shrink-0">
+                                <popup.Icon size={24} className="text-white" strokeWidth={2.5} />
+                            </div>
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <h4 className="text-white font-extrabold text-base tracking-tight leading-tight">
+                                    {popup.title}
+                                </h4>
+                                <p className="text-zinc-400 text-[13px] font-semibold leading-snug mt-0.5">
+                                    {popup.msg}
+                                </p>
+                            </div>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
+            </div>
         </div>
     );
 }

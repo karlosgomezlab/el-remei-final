@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ChefHat, Clock, CheckCircle2, AlertCircle, Archive } from 'lucide-react';
+import { ChefHat, Clock, CheckCircle2, AlertCircle, Archive, Hand } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Order } from '@/types';
 
@@ -15,6 +16,8 @@ export default function KitchenView() {
     const [orders, setOrders] = useState<Order[]>([]);
     const ordersRef = useRef<Order[]>([]);
     const [loading, setLoading] = useState(true);
+    const [waiterCalls, setWaiterCalls] = useState<any[]>([]);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         ordersRef.current = orders;
@@ -33,6 +36,52 @@ export default function KitchenView() {
 
         return () => { supabase.removeChannel(channel); };
     }, []);
+
+    useEffect(() => {
+        fetchWaiterCalls();
+
+        // Inicializar el sonido de aviso
+        audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+
+        const waiterChannel = supabase
+            .channel('waiter-calls')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'waiter_calls' },
+                (payload) => {
+                    setWaiterCalls(prev => [payload.new, ...prev]);
+                    // Tocar sonido de campana
+                    if (audioRef.current) {
+                        audioRef.current.play().catch(e => console.log("Audio auto-play blocked"));
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'waiter_calls' },
+                (payload) => {
+                    if (payload.new.status !== 'pending') {
+                        setWaiterCalls(prev => prev.filter(c => c.id !== payload.new.id));
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => { supabase.removeChannel(waiterChannel); };
+    }, []);
+
+    const fetchWaiterCalls = async () => {
+        const { data } = await supabase
+            .from('waiter_calls')
+            .select('*')
+            .eq('status', 'pending');
+        if (data) setWaiterCalls(data);
+    };
+
+    const dismissCall = async (callId: string) => {
+        await supabase.from('waiter_calls').update({ status: 'attended' }).eq('id', callId);
+        setWaiterCalls(prev => prev.filter(c => c.id !== callId));
+    };
 
     const fetchCookingOrders = async () => {
         const { data } = await supabase
@@ -130,6 +179,32 @@ export default function KitchenView() {
                     </Link>
                 </div>
             </header>
+
+            {/* ======= ALERTAS DE CAMARERO ======= */}
+            <AnimatePresence>
+                {waiterCalls.length > 0 && (
+                    <div className="mb-10 flex flex-wrap gap-4">
+                        {waiterCalls.map((call) => (
+                            <div
+                                key={call.id}
+                                className="bg-red-600 animate-pulse-fast p-4 rounded-3xl flex items-center gap-4 shadow-[0_0_30px_rgba(220,38,38,0.5)] border-2 border-white/50"
+                            >
+                                <div className="text-3xl">🖐️</div>
+                                <div>
+                                    <p className="font-black text-white text-lg leading-none">MESA {call.table_number}</p>
+                                    <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest mt-1">Llama al camarero</p>
+                                </div>
+                                <button
+                                    onClick={() => dismissCall(call.id)}
+                                    className="ml-4 bg-white text-red-600 px-4 py-2 rounded-xl font-black text-xs uppercase hover:bg-zinc-100 transition-all"
+                                >
+                                    ATENDER
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </AnimatePresence>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {orders

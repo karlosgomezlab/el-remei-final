@@ -10,7 +10,46 @@ export interface Product {
     is_vegan?: boolean;
     is_gluten_free?: boolean;
     is_favorite?: boolean;
+    // Bloque E: Nuevos campos
+    is_daily_special?: boolean;
+    daily_special_price?: number;
+    allergens?: string[];
     created_at?: string;
+}
+
+export interface Prize {
+    id: string;
+    name: string;
+    description?: string;
+    icon: string;
+    probability: number;
+    prize_type: 'free_item' | 'discount' | 'points_multiplier' | 'none';
+    prize_value?: string;
+    is_active: boolean;
+}
+
+export interface PrizeRedemption {
+    id: string;
+    customer_id: string;
+    prize_id: string;
+    order_id: string;
+    is_redeemed: boolean;
+    redeemed_at?: string;
+    created_at?: string;
+}
+
+export interface HappyHourConfig {
+    id: string;
+    start_hour: number;
+    end_hour: number;
+    discount_percent: number;
+    applies_to: string;
+    is_active: boolean;
+}
+
+export interface KitchenConfig {
+    category: string;
+    avg_minutes: number;
 }
 
 export interface Customer {

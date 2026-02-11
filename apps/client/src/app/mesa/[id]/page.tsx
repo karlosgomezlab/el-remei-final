@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw, Coffee, Beer, Pizza, Heart, Flame, Truck, PartyPopper, Wine, CakeSlice } from 'lucide-react';
+import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw, Coffee, Beer, Pizza, Heart, Flame, Truck, PartyPopper, Wine, CakeSlice, Hand as HandIcon, Sparkles, Bot, Send } from 'lucide-react';
 import { toast, ToastOptions } from 'react-toastify';
 import confetti from 'canvas-confetti';
-import { Product, Customer } from '@/types/shared';
+import { Product, Customer, Prize, HappyHourConfig, KitchenConfig } from '@/types/shared';
 import { getProductImage } from '@/utils/productImages';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -94,6 +94,47 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
         favorites: false
     });
     const [searchQuery, setSearchQuery] = useState('');
+
+    // --- Llamar al Camarero ---
+    const [isCallingWaiter, setIsCallingWaiter] = useState(false);
+    const [waiterCallCooldown, setWaiterCallCooldown] = useState(0);
+
+
+    // --- BLOQUE E: Happy Hour ---
+    const [happyHourConfig, setHappyHourConfig] = useState<HappyHourConfig | null>(null);
+    const [isHappyHour, setIsHappyHour] = useState(false);
+
+    // --- BLOQUE A: Ruleta del Postre ---
+    const [prizes, setPrizes] = useState<Prize[]>([]);
+    const [isRouletteOpen, setIsRouletteOpen] = useState(false);
+    const [isSpinning, setIsSpinning] = useState(false);
+    const [wonPrize, setWonPrize] = useState<Prize | null>(null);
+    const [spinRotation, setSpinRotation] = useState(0);
+    const [lastRatedOrderId, setLastRatedOrderId] = useState<string | null>(null);
+
+    // --- BLOQUE C: Tiempo Estimado ---
+    const [kitchenConfigs, setKitchenConfigs] = useState<KitchenConfig[]>([]);
+    const [estimatedMinutes, setEstimatedMinutes] = useState<number | null>(null);
+    const [orderPlacedTime, setOrderPlacedTime] = useState<Date | null>(null);
+
+    // --- BLOQUE B: Perfil Gastronómico ---
+    const [gastroProfile, setGastroProfile] = useState<{
+        favoriteDish: string;
+        favoriteCategory: string;
+        totalVisits: number;
+        totalSpent: number;
+        monthlySpend: { month: string; amount: number }[];
+        streak: number;
+        foodieLevel: string;
+    } | null>(null);
+    const [isGastroProfileOpen, setIsGastroProfileOpen] = useState(false);
+
+    // --- BLOQUE F: Asistente IA ---
+    const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+    const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
+    const [aiInput, setAiInput] = useState('');
+    const [isAiTyping, setIsAiTyping] = useState(false);
+
 
     // --- MULTI-IDIOMA ---
     const [language, setLanguage] = useState<'es' | 'ca' | 'en'>('es');
@@ -242,6 +283,68 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 orderOnTab: "✅ ¡Pedido anotado en tu cuenta! Buen provecho.",
                 orderSent: "✅ ¡Pedido enviado a cocina!",
                 errorCheckout: "Error al procesar el pedido: {error}"
+            },
+            // NUEVAS FEATURES
+            happyHour: {
+                badge: "🍹 HAPPY HOUR",
+                discount: "-{percent}%",
+                active: "Happy Hour activa hasta las {hour}:00"
+            },
+            dailySpecial: {
+                badge: "🔥 MENÚ DEL DÍA",
+                before: "Antes: {price}€"
+            },
+            allergens: {
+                title: "Alérgenos",
+                gluten: "Gluten",
+                dairy: "Lácteo",
+                nuts: "Frutos Secos",
+                eggs: "Huevos",
+                fish: "Pescado",
+                shellfish: "Marisco",
+                soy: "Soja",
+                celery: "Apio"
+            },
+            roulette: {
+                title: "🎰 ¡Gira la Ruleta!",
+                subtitle: "Tienes un giro gratis por tu pedido",
+                spin: "¡GIRAR!",
+                congrats: "🎉 ¡Felicidades!",
+                wonPrize: "Has ganado:",
+                close: "¡GENIAL!",
+                alreadySpun: "Ya has girado la ruleta por este pedido"
+            },
+            timeEstimate: {
+                title: "Tiempo estimado",
+                minutes: "~{min} min",
+                ready: "¡Ya casi!",
+                preparing: "Preparando tu pedido..."
+            },
+            gastroProfile: {
+                title: "Mi Perfil Gastronómico",
+                favoriteDish: "Plato Favorito",
+                favoriteCategory: "Categoría Favorita",
+                totalVisits: "Visitas Totales",
+                totalSpent: "Total Gastado",
+                monthlySpend: "Gasto Mensual",
+                streak: "Racha de Visitas",
+                foodieLevel: "Nivel Foodie",
+                weeks: "semanas",
+                levels: { novato: "🥉 Novato", habitual: "🥈 Habitual", foodie: "🥇 Foodie", vip: "💎 VIP" },
+                noData: "Haz tu primer pedido para ver tus estadísticas"
+            },
+            callWaiter: {
+                button: "Llamar Camarero",
+                calling: "Llamando...",
+                success: "¡Camarero avisado!",
+                cooldown: "Espera {sec}s"
+            },
+            aiChat: {
+                title: "Asistente El Remei",
+                subtitle: "Pregúntame sobre el menú o alérgenos",
+                placeholder: "Escribe tu duda...",
+                suggestions: ["¿Qué recomiendas?", "¿Hay opciones veganas?", "¿Tenéis wifi?"],
+                welcome: "¡Hola! Soy el asistente virtual de El Remei. ¿En qué puedo ayudarte hoy?"
             }
         },
         ca: {
@@ -387,6 +490,67 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 orderOnTab: "✅ Comanda anotada al teu compte! Bon profit.",
                 orderSent: "✅ Comanda enviada a cuina!",
                 errorCheckout: "Error en processar la comanda: {error}"
+            },
+            happyHour: {
+                badge: "🍹 HAPPY HOUR",
+                discount: "-{percent}%",
+                active: "Happy Hour activa fins les {hour}:00"
+            },
+            dailySpecial: {
+                badge: "🔥 MENÚ DEL DIA",
+                before: "Abans: {price}€"
+            },
+            allergens: {
+                title: "Al·lèrgens",
+                gluten: "Gluten",
+                dairy: "Lacti",
+                nuts: "Fruits Secs",
+                eggs: "Ous",
+                fish: "Peix",
+                shellfish: "Marisc",
+                soy: "Soja",
+                celery: "Api"
+            },
+            roulette: {
+                title: "🎰 Gira la Ruleta!",
+                subtitle: "Tens un gir gratis per la teva comanda",
+                spin: "GIRAR!",
+                congrats: "🎉 Felicitats!",
+                wonPrize: "Has guanyat:",
+                close: "GENIAL!",
+                alreadySpun: "Ja has girat la ruleta per aquesta comanda"
+            },
+            timeEstimate: {
+                title: "Temps estimat",
+                minutes: "~{min} min",
+                ready: "Ja quasi!",
+                preparing: "Preparant la teva comanda..."
+            },
+            gastroProfile: {
+                title: "El Meu Perfil Gastronòmic",
+                favoriteDish: "Plat Preferit",
+                favoriteCategory: "Categoria Preferida",
+                totalVisits: "Visites Totals",
+                totalSpent: "Total Gastat",
+                monthlySpend: "Despesa Mensual",
+                streak: "Ratxa de Visites",
+                foodieLevel: "Nivell Foodie",
+                weeks: "setmanes",
+                levels: { novato: "🥉 Novell", habitual: "🥈 Habitual", foodie: "🥇 Foodie", vip: "💎 VIP" },
+                noData: "Fes la teva primera comanda per veure les teves estadístiques"
+            },
+            callWaiter: {
+                button: "Cridar Cambrer",
+                calling: "Cridant...",
+                success: "¡Cambrer avisat!",
+                cooldown: "Espera {sec}s"
+            },
+            aiChat: {
+                title: "Assistent El Remei",
+                subtitle: "Pregunta'm sobre el menú o al·lèrgens",
+                placeholder: "Escriu el teu dubte...",
+                suggestions: ["Què recomanes?", "Hi ha opcions veganes?", "Teniu wifi?"],
+                welcome: "Hola! Sóc l'assistent virtual d'El Remei. En què et puc ajudar avui?"
             }
         },
         en: {
@@ -532,11 +696,150 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 orderOnTab: "✅ Order noted on your account! Enjoy.",
                 orderSent: "✅ Order sent to kitchen!",
                 errorCheckout: "Error processing order: {error}"
+            },
+            happyHour: {
+                badge: "🍹 HAPPY HOUR",
+                discount: "-{percent}%",
+                active: "Happy Hour active until {hour}:00"
+            },
+            dailySpecial: {
+                badge: "🔥 DAILY SPECIAL",
+                before: "Was: {price}€"
+            },
+            allergens: {
+                title: "Allergens",
+                gluten: "Gluten",
+                dairy: "Dairy",
+                nuts: "Nuts",
+                eggs: "Eggs",
+                fish: "Fish",
+                shellfish: "Shellfish",
+                soy: "Soy",
+                celery: "Celery"
+            },
+            roulette: {
+                title: "🎰 Spin the Wheel!",
+                subtitle: "You have a free spin for your order",
+                spin: "SPIN!",
+                congrats: "🎉 Congratulations!",
+                wonPrize: "You won:",
+                close: "AWESOME!",
+                alreadySpun: "You already spun the wheel for this order"
+            },
+            timeEstimate: {
+                title: "Estimated Time",
+                minutes: "~{min} min",
+                ready: "Almost ready!",
+                preparing: "Preparing your order..."
+            },
+            gastroProfile: {
+                title: "My Gastro Profile",
+                favoriteDish: "Favorite Dish",
+                favoriteCategory: "Favorite Category",
+                totalVisits: "Total Visits",
+                totalSpent: "Total Spent",
+                monthlySpend: "Monthly Spend",
+                streak: "Visit Streak",
+                foodieLevel: "Foodie Level",
+                weeks: "weeks",
+                levels: { novato: "🥉 Newbie", habitual: "🥈 Regular", foodie: "🥇 Foodie", vip: "💎 VIP" },
+                noData: "Place your first order to see your stats"
+            },
+            callWaiter: {
+                button: "Call Waiter",
+                calling: "Calling...",
+                success: "Waiter notified!",
+                cooldown: "Wait {sec}s"
+            },
+            aiChat: {
+                title: "El Remei Assistant",
+                subtitle: "Ask me about the menu or allergens",
+                placeholder: "Type your question...",
+                suggestions: ["What do you recommend?", "Any vegan options?", "Do you have wifi?"],
+                welcome: "Hello! I'm El Remei's virtual assistant. How can I help you today?"
             }
         }
     };
 
     const t = TRANSLATIONS[language];
+
+    // --- BLOQUE D: Llamar al Camarero ---
+    const handleCallWaiter = async () => {
+        if (waiterCallCooldown > 0) return;
+
+        setIsCallingWaiter(true);
+        try {
+            const { error } = await supabase
+                .from('waiter_calls')
+                .insert([{
+                    table_number: tableId,
+                    status: 'pending'
+                }]);
+
+            if (error) throw error;
+
+            toast.success(t.callWaiter.success, {
+                icon: '👋',
+                position: "top-center",
+                autoClose: 3000
+            });
+
+            // Iniciar cooldown de 1 minuto
+            setWaiterCallCooldown(60);
+        } catch (e) {
+            console.error("Error calling waiter:", e);
+            toast.error("Error al contactar con el personal");
+        } finally {
+            setIsCallingWaiter(false);
+        }
+    };
+
+    const handleSendAiMessage = async (msg?: string) => {
+        const text = msg || aiInput;
+        if (!text.trim()) return;
+
+        const newMessage = { role: 'user' as const, content: text };
+        const updatedMessages = [...aiMessages, newMessage];
+        setAiMessages(updatedMessages);
+        setAiInput('');
+        setIsAiTyping(true);
+
+        try {
+            const { data, error } = await supabase.functions.invoke('ai-assistant', {
+                body: { messages: updatedMessages.map(m => ({ role: m.role, content: m.content })) }
+            });
+
+            if (error) {
+                console.error("Supabase Function Error:", error);
+                throw error;
+            }
+
+            if (data?.content) {
+                setAiMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
+            } else if (data?.error) {
+                throw new Error(data.error);
+            } else {
+                throw new Error("Respuesta vacía del servidor");
+            }
+        } catch (err: any) {
+            console.error("AI Assistant Detail Error:", err);
+            const errorMessage = err.message || "Error desconocido";
+            toast.error(`Error: ${errorMessage}`);
+            setAiMessages(prev => [...prev, { role: 'assistant', content: `Ups, he tenido un problema: ${errorMessage}. ¿Podemos intentarlo de nuevo?` }]);
+        } finally {
+            setIsAiTyping(false);
+        }
+    };
+
+    // Cooldown timer para no saturar al camarero
+    useEffect(() => {
+        if (waiterCallCooldown > 0) {
+            const timer = setInterval(() => {
+                setWaiterCallCooldown(prev => prev - 1);
+            }, 1000);
+            return () => clearInterval(timer);
+        }
+    }, [waiterCallCooldown]);
 
     // Ref para mantener el estado anterior y poder comparar
     const prevOrdersRef = useRef<any[]>([]);
@@ -552,9 +855,23 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             }
             fetchMenu();
             fetchActiveOrders();
+            fetchHappyHourConfig();
+            fetchPrizes();
+            fetchKitchenConfigs();
         };
 
-        loadInitialData();
+        loadInitialData().then(() => {
+            // Comprobar si hay que abrir la ruleta (viene de pagar propina)
+            const showRoulette = localStorage.getItem('remei_show_roulette');
+            if (showRoulette === 'true') {
+                localStorage.removeItem('remei_show_roulette');
+                // Esperar un poco a que los prizes se carguen en el estado
+                setTimeout(() => {
+                    console.log('[ROULETTE] Flag detected, opening roulette');
+                    setIsRouletteOpen(true);
+                }, 1500);
+            }
+        });
 
         const channel = supabase
             .channel(`table-${tableId}-orders`)
@@ -772,6 +1089,191 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
         }
     };
 
+    // --- BLOQUE E: Cargar Happy Hour ---
+    const fetchHappyHourConfig = async () => {
+        try {
+            const { data } = await supabase
+                .from('happy_hour_config')
+                .select('*')
+                .eq('is_active', true)
+                .limit(1)
+                .single();
+            if (data) {
+                setHappyHourConfig(data);
+                const now = new Date();
+                const currentHour = now.getHours();
+                setIsHappyHour(currentHour >= data.start_hour && currentHour < data.end_hour);
+            }
+        } catch (e) { /* Happy hour table may not exist yet */ }
+    };
+
+    // --- BLOQUE A: Cargar premios ---
+    const fetchPrizes = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('prizes')
+                .select('*')
+                .eq('is_active', true);
+            console.log('[ROULETTE] Prizes fetched:', data, 'Error:', error);
+            if (data) setPrizes(data);
+        } catch (e) { console.log('[ROULETTE] fetchPrizes exception:', e); }
+    };
+
+    // --- BLOQUE C: Cargar tiempos de cocina ---
+    const fetchKitchenConfigs = async () => {
+        try {
+            const { data } = await supabase
+                .from('kitchen_config')
+                .select('*');
+            if (data) setKitchenConfigs(data);
+        } catch (e) { /* Kitchen config may not exist yet */ }
+    };
+
+    // --- BLOQUE C: Calcular tiempo estimado ---
+    const calculateEstimatedTime = () => {
+        if (kitchenConfigs.length === 0 || cart.length === 0) {
+            setEstimatedMinutes(null);
+            return;
+        }
+        // Tiempo del plato más lento del carrito + overhead por pedidos pendientes
+        let maxTime = 0;
+        cart.forEach(item => {
+            const config = kitchenConfigs.find(k => k.category === item.product.category);
+            const baseTime = config ? config.avg_minutes : 10;
+            if (baseTime > maxTime) maxTime = baseTime;
+        });
+        // Añadir 2 min de overhead por cada 3 pedidos pendientes
+        const overhead = Math.floor(totalOrders / 3) * 2;
+        setEstimatedMinutes(maxTime + overhead);
+    };
+
+    // --- BLOQUE B: Calcular Perfil Gastronómico ---
+    const calculateGastroProfile = async (customerId: string) => {
+        try {
+            const { data: orders } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('customer_id', customerId)
+                .order('created_at', { ascending: false });
+
+            if (!orders || orders.length === 0) {
+                setGastroProfile(null);
+                return;
+            }
+
+            // Plato más pedido
+            const dishCount: Record<string, number> = {};
+            const categoryCount: Record<string, number> = {};
+            orders.forEach((order: any) => {
+                (order.items || []).forEach((item: any) => {
+                    dishCount[item.name] = (dishCount[item.name] || 0) + (item.qty || 1);
+                    categoryCount[item.category] = (categoryCount[item.category] || 0) + (item.qty || 1);
+                });
+            });
+
+            const favoriteDish = Object.entries(dishCount).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+            const favoriteCategory = Object.entries(categoryCount).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+
+            // Gasto por mes (últimos 6 meses)
+            const monthlySpend: { month: string; amount: number }[] = [];
+            const now = new Date();
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                const monthLabel = d.toLocaleDateString('es', { month: 'short' });
+                const total = orders
+                    .filter((o: any) => o.created_at?.startsWith(monthKey))
+                    .reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0);
+                monthlySpend.push({ month: monthLabel, amount: total });
+            }
+
+            // Racha de semanas consecutivas
+            const weekSet = new Set<string>();
+            orders.forEach((o: any) => {
+                if (o.created_at) {
+                    const d = new Date(o.created_at);
+                    const week = `${d.getFullYear()}-W${Math.ceil(((d.getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7)}`;
+                    weekSet.add(week);
+                }
+            });
+            let streak = 0;
+            const currentWeek = Math.ceil(((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7);
+            for (let w = currentWeek; w > 0; w--) {
+                if (weekSet.has(`${now.getFullYear()}-W${w}`)) {
+                    streak++;
+                } else break;
+            }
+
+            const totalSpent = orders.reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0);
+            const points = customer?.points || 0;
+            const foodieLevel = points >= 5000 ? 'vip' : points >= 2000 ? 'foodie' : points >= 500 ? 'habitual' : 'novato';
+
+            setGastroProfile({
+                favoriteDish,
+                favoriteCategory,
+                totalVisits: orders.length,
+                totalSpent,
+                monthlySpend,
+                streak,
+                foodieLevel
+            });
+        } catch (e) { console.error("Error calculating gastro profile:", e); }
+    };
+
+    // --- BLOQUE A: Algoritmo de selección de premio ---
+    const spinRoulette = () => {
+        if (prizes.length === 0 || isSpinning) return;
+
+        setIsSpinning(true);
+        setWonPrize(null);
+
+        // Seleccionar premio ponderado por probabilidad
+        const totalProb = prizes.reduce((sum, p) => sum + p.probability, 0);
+        let random = Math.random() * totalProb;
+        let selectedPrize = prizes[0];
+        for (const prize of prizes) {
+            random -= prize.probability;
+            if (random <= 0) {
+                selectedPrize = prize;
+                break;
+            }
+        }
+
+        // Calcular ángulo de rotación
+        const prizeIndex = prizes.indexOf(selectedPrize);
+        const segmentAngle = 360 / prizes.length;
+        const targetAngle = 360 - (prizeIndex * segmentAngle + segmentAngle / 2);
+        const totalRotation = spinRotation + 1440 + targetAngle; // 4 vueltas completas + ángulo
+
+        setSpinRotation(totalRotation);
+
+        // Después de la animación, revelar premio
+        setTimeout(async () => {
+            setWonPrize(selectedPrize);
+            setIsSpinning(false);
+
+            // Animación de confeti si ganó algo
+            if (selectedPrize.prize_type !== 'none') {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#f97316', '#facc15', '#22c55e', '#3b82f6']
+                });
+            }
+
+            // Guardar en la base de datos
+            if (customer && lastRatedOrderId) {
+                await supabase.from('prize_redemptions').insert({
+                    customer_id: customer.id,
+                    prize_id: selectedPrize.id,
+                    order_id: lastRatedOrderId,
+                    is_redeemed: false
+                });
+            }
+        }, 4000);
+    };
+
     // Efecto para rotar las sugerencias del chef según la categoría activa
     useEffect(() => {
         if (menu.length > 0) {
@@ -787,6 +1289,22 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             setRecommendedPlates(favorites.slice(0, 3));
         }
     }, [activeCategory, menu]);
+
+    // Recalcular tiempo estimado cuando cambia el carrito
+    useEffect(() => {
+        calculateEstimatedTime();
+    }, [cart, kitchenConfigs, totalOrders]);
+
+    // Recalcular Happy Hour cada minuto
+    useEffect(() => {
+        if (!happyHourConfig) return;
+        const interval = setInterval(() => {
+            const now = new Date();
+            const currentHour = now.getHours();
+            setIsHappyHour(currentHour >= happyHourConfig.start_hour && currentHour < happyHourConfig.end_hour);
+        }, 60000);
+        return () => clearInterval(interval);
+    }, [happyHourConfig]);
 
     // Función de Auditoría VeriFactu - NEW
     const logAuditEvent = async (type: string, description: string, payload: any = {}) => {
@@ -1575,6 +2093,18 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
                             {/* Historial de Gastos */}
                             <div className="flex-1 overflow-y-auto p-8 no-scrollbar">
+                                {/* Botón Perfil Gastronómico */}
+                                <button
+                                    onClick={async () => {
+                                        await calculateGastroProfile(customer.id);
+                                        setIsGastroProfileOpen(true);
+                                    }}
+                                    className="w-full mb-6 bg-gradient-to-r from-zinc-900 to-zinc-800 text-white py-4 rounded-2xl font-black italic text-sm flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transition-all active:scale-95"
+                                >
+                                    <span className="text-xl">📊</span>
+                                    {t.gastroProfile.title}
+                                </button>
+
                                 <h3 className="text-xs font-black text-zinc-900 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                                     <HistoryIcon className="w-4 h-4 text-orange-600" />
                                     {t.profile.history}
@@ -1951,6 +2481,22 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     </div>
                 )}
 
+                {/* Happy Hour Banner */}
+                {isHappyHour && happyHourConfig && (
+                    <div className="mx-4 md:mx-12 mb-4">
+                        <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 bg-[length:200%_100%] animate-[shimmer_3s_ease-in-out_infinite] rounded-3xl p-4 flex items-center gap-4 shadow-xl shadow-purple-200">
+                            <div className="text-4xl">🍹</div>
+                            <div className="flex-1">
+                                <h3 className="text-white font-black italic text-lg tracking-tight">HAPPY HOUR</h3>
+                                <p className="text-white/80 text-xs font-bold">{t.happyHour.active.replace('{hour}', String(happyHourConfig.end_hour))}</p>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur-md rounded-2xl px-4 py-2 text-center">
+                                <span className="text-white font-black text-2xl">-{happyHourConfig.discount_percent}%</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* AI Recommendations - NEW PREMIUM FEATURE */}
                 {recommendedPlates && recommendedPlates.length > 0 && searchQuery.trim() === '' && (
                     <div className="px-4 md:px-12 py-8 bg-orange-50/30">
@@ -2048,6 +2594,12 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                 {product.is_gluten_free && (
                                                     <div className="bg-amber-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">{t.glutenFree}</div>
                                                 )}
+                                                {product.is_daily_special && (
+                                                    <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg animate-pulse">{t.dailySpecial.badge}</div>
+                                                )}
+                                                {isHappyHour && product.category === happyHourConfig?.applies_to && (
+                                                    <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg">{t.happyHour.badge}</div>
+                                                )}
                                             </div>
 
                                             <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md w-12 h-12 rounded-2xl flex items-center justify-center text-orange-500 shadow-xl group-hover:bg-orange-500 group-hover:text-white transition-all duration-300">
@@ -2057,9 +2609,39 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                         <div className="px-2 pb-2">
                                             <div className="flex justify-between items-start mb-2 gap-2">
                                                 <h3 className="font-black text-lg text-gray-800 leading-tight">{product.name}</h3>
-                                                <span className="text-orange-600 font-black text-lg">{Number(product.price).toFixed(2)}€</span>
+                                                <div className="flex flex-col items-end">
+                                                    {(product.is_daily_special && product.daily_special_price) ? (
+                                                        <>
+                                                            <span className="text-gray-400 text-xs line-through">{Number(product.price).toFixed(2)}€</span>
+                                                            <span className="text-red-600 font-black text-lg">{Number(product.daily_special_price).toFixed(2)}€</span>
+                                                        </>
+                                                    ) : (isHappyHour && product.category === happyHourConfig?.applies_to && happyHourConfig) ? (
+                                                        <>
+                                                            <span className="text-gray-400 text-xs line-through">{Number(product.price).toFixed(2)}€</span>
+                                                            <span className="text-purple-600 font-black text-lg">{(Number(product.price) * (1 - happyHourConfig.discount_percent / 100)).toFixed(2)}€</span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-orange-600 font-black text-lg">{Number(product.price).toFixed(2)}€</span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <p className="text-xs text-gray-400 font-medium leading-relaxed">{product.description || "Deliciosa especialidad de El Remei preparada con ingredientes frescos del día."}</p>
+                                            {/* Iconos de alérgenos */}
+                                            {product.allergens && product.allergens.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-2">
+                                                    {product.allergens.map((allergen: string) => {
+                                                        const allergenIcons: Record<string, string> = {
+                                                            gluten: '🌾', dairy: '🥛', nuts: '🥜', eggs: '🥚',
+                                                            fish: '🐟', shellfish: '🦐', soy: '🫘', celery: '🥬'
+                                                        };
+                                                        return (
+                                                            <span key={allergen} className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-lg text-[9px] font-bold" title={(t.allergens as any)[allergen] || allergen}>
+                                                                {allergenIcons[allergen] || '⚠️'} {(t.allergens as any)[allergen] || allergen}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))
@@ -2093,6 +2675,9 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     }
                                 </p>
                             </div>
+                            {estimatedMinutes !== null && (
+                                <p className="text-[9px] font-bold opacity-60 mt-0.5">⏱️ {t.timeEstimate.minutes.replace('{min}', String(estimatedMinutes))}</p>
+                            )}
                         </div>
                         <div className="bg-orange-500 px-8 py-5 rounded-[1.8rem] text-2xl font-black shadow-lg">
                             {total.toFixed(2)}€
@@ -2141,6 +2726,10 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                 toast.success(t.rating.thanks, { position: "top-center" });
                                                 setTimeout(() => {
                                                     setRating(0);
+                                                    // Activar ruleta si hay premios y usuario registrado
+                                                    if (prizes.length > 0 && customer) {
+                                                        setTimeout(() => setIsRouletteOpen(true), 600);
+                                                    }
                                                 }, 500);
                                             }
                                         }}
@@ -2207,6 +2796,8 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                     ? parseFloat(customTip)
                                                     : selectedTip; // Los IDs coinciden con el monto (2, 5, 10)
 
+                                                // Guardar flag para abrir la ruleta al volver del checkout
+                                                localStorage.setItem('remei_show_roulette', 'true');
                                                 router.push(`/mesa/${params.id}/checkout?amount=${tipAmount}&concept=Propina%20Equipo&is_tip=true`);
                                             }
                                         }}
@@ -2222,6 +2813,10 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                             setTimeout(() => {
                                                 setIsTipPhase(false);
                                                 setRating(0);
+                                                // Activar ruleta al saltar propina
+                                                if (prizes.length > 0 && customer) {
+                                                    setTimeout(() => setIsRouletteOpen(true), 600);
+                                                }
                                             }, 500);
                                         }}
                                         className="mt-6 text-[10px] font-black uppercase text-gray-400 tracking-widest"
@@ -2244,6 +2839,12 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                 setHasTipped(false);
                                                 setSelectedTip(null);
                                                 setRating(0);
+                                                // Activar ruleta tras agradecer el tip
+                                                console.log('[ROULETTE] Trigger check - prizes:', prizes.length, 'customer:', !!customer);
+                                                if (prizes.length > 0 && customer) {
+                                                    console.log('[ROULETTE] Opening roulette!');
+                                                    setTimeout(() => setIsRouletteOpen(true), 600);
+                                                }
                                             }, 500);
                                         }}
                                         className="mt-10 bg-zinc-900 text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg"
@@ -2252,6 +2853,354 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                     </button>
                                 </motion.div>
                             )}
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* ======= RULETA DEL POSTRE ======= */}
+            <AnimatePresence>
+                {isRouletteOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/70 backdrop-blur-md z-50"
+                            onClick={() => { if (!isSpinning) { setIsRouletteOpen(false); setWonPrize(null); } }}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.5, opacity: 0, y: 100 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.5, opacity: 0, y: 100 }}
+                            className="fixed inset-x-4 top-1/2 -translate-y-1/2 bg-white rounded-[3rem] p-6 z-50 text-center shadow-2xl max-w-md mx-auto"
+                        >
+                            {!wonPrize ? (
+                                <>
+                                    <h2 className="text-2xl font-black italic tracking-tighter mb-1">{t.roulette.title}</h2>
+                                    <p className="text-gray-400 text-xs font-bold mb-6">{t.roulette.subtitle}</p>
+
+                                    {/* Ruleta Visual */}
+                                    <div className="relative w-64 h-64 mx-auto mb-6">
+                                        {/* Indicador */}
+                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 z-10 text-3xl" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>▼</div>
+
+                                        {/* Rueda */}
+                                        <div
+                                            className="w-full h-full rounded-full border-4 border-orange-200 shadow-xl overflow-hidden"
+                                            style={{
+                                                transform: `rotate(${spinRotation}deg)`,
+                                                transition: isSpinning ? 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none'
+                                            }}
+                                        >
+                                            {prizes.map((prize, i) => {
+                                                const segAngle = 360 / prizes.length;
+                                                const colors = ['#f97316', '#8b5cf6', '#22c55e', '#3b82f6', '#ef4444'];
+                                                return (
+                                                    <div
+                                                        key={prize.id}
+                                                        className="absolute w-full h-full"
+                                                        style={{
+                                                            transform: `rotate(${i * segAngle}deg)`,
+                                                            clipPath: `polygon(50% 50%, 50% 0%, ${50 + 50 * Math.tan((segAngle * Math.PI) / 360)}% 0%)`
+                                                        }}
+                                                    >
+                                                        <div
+                                                            className="w-full h-full flex items-start justify-center pt-6"
+                                                            style={{ backgroundColor: colors[i % colors.length] }}
+                                                        >
+                                                            <span className="text-white text-lg" style={{ transform: `rotate(${segAngle / 2}deg)` }}>{prize.icon}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {/* Overlay con segmentos correctos usando conic-gradient */}
+                                            <div
+                                                className="absolute inset-0 rounded-full"
+                                                style={{
+                                                    background: prizes.length > 0 ? `conic-gradient(${prizes.map((p, i) => {
+                                                        const colors = ['#f97316cc', '#8b5cf6cc', '#22c55ecc', '#3b82f6cc', '#ef4444cc'];
+                                                        const start = (i / prizes.length) * 100;
+                                                        const end = ((i + 1) / prizes.length) * 100;
+                                                        return `${colors[i % colors.length]} ${start}% ${end}%`;
+                                                    }).join(', ')})` : '#f97316'
+                                                }}
+                                            />
+                                            {/* Textos de premio */}
+                                            {prizes.map((prize, i) => {
+                                                const segAngle = 360 / prizes.length;
+                                                const midAngle = (i * segAngle + segAngle / 2 - 90) * (Math.PI / 180);
+                                                const r = 80;
+                                                const x = 50 + (r * Math.cos(midAngle)) / 128 * 50;
+                                                const y = 50 + (r * Math.sin(midAngle)) / 128 * 50;
+                                                return (
+                                                    <div
+                                                        key={`label-${prize.id}`}
+                                                        className="absolute text-white font-black text-sm drop-shadow-lg"
+                                                        style={{
+                                                            left: `${x}%`,
+                                                            top: `${y}%`,
+                                                            transform: 'translate(-50%, -50%)',
+                                                            fontSize: '1.3rem'
+                                                        }}
+                                                    >
+                                                        {prize.icon}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={spinRoulette}
+                                        disabled={isSpinning}
+                                        className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-10 py-4 rounded-3xl font-black italic text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                                    >
+                                        {isSpinning ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : t.roulette.spin}
+                                    </button>
+                                </>
+                            ) : (
+                                <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+                                    <div className="text-6xl mb-4">{wonPrize.icon}</div>
+                                    <h2 className="text-2xl font-black italic tracking-tighter mb-2">{t.roulette.congrats}</h2>
+                                    <p className="text-gray-400 text-xs font-bold uppercase mb-2">{t.roulette.wonPrize}</p>
+                                    <h3 className="text-xl font-black text-orange-600 mb-1">{wonPrize.name}</h3>
+                                    <p className="text-gray-500 text-sm mb-6">{wonPrize.description}</p>
+                                    <button
+                                        onClick={() => { setIsRouletteOpen(false); setWonPrize(null); }}
+                                        className="bg-zinc-900 text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg"
+                                    >
+                                        {t.roulette.close}
+                                    </button>
+                                </motion.div>
+                            )}
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* ======= PERFIL GASTRONÓMICO ======= */}
+            <AnimatePresence>
+                {isGastroProfileOpen && gastroProfile && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50"
+                            onClick={() => setIsGastroProfileOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+                            transition={{ type: 'spring', damping: 25 }}
+                            className="fixed inset-x-0 bottom-0 bg-gradient-to-b from-zinc-900 to-black rounded-t-[3rem] p-6 z-50 text-white max-h-[85vh] overflow-y-auto"
+                        >
+                            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6" />
+
+                            <h2 className="text-2xl font-black italic tracking-tighter mb-1">{t.gastroProfile.title}</h2>
+                            <p className="text-zinc-400 text-xs font-bold mb-6">
+                                {(t.gastroProfile.levels as any)[gastroProfile.foodieLevel] || '🥉'}
+                            </p>
+
+                            {/* Stats Grid */}
+                            <div className="grid grid-cols-2 gap-3 mb-6">
+                                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                                    <p className="text-zinc-400 text-[9px] font-bold uppercase tracking-widest">{t.gastroProfile.favoriteDish}</p>
+                                    <p className="text-lg font-black mt-1 truncate">{gastroProfile.favoriteDish}</p>
+                                </div>
+                                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                                    <p className="text-zinc-400 text-[9px] font-bold uppercase tracking-widest">{t.gastroProfile.favoriteCategory}</p>
+                                    <p className="text-lg font-black mt-1 capitalize">{gastroProfile.favoriteCategory}</p>
+                                </div>
+                                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                                    <p className="text-zinc-400 text-[9px] font-bold uppercase tracking-widest">{t.gastroProfile.totalVisits}</p>
+                                    <p className="text-3xl font-black mt-1">{gastroProfile.totalVisits}</p>
+                                </div>
+                                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                                    <p className="text-zinc-400 text-[9px] font-bold uppercase tracking-widest">{t.gastroProfile.totalSpent}</p>
+                                    <p className="text-3xl font-black mt-1">{gastroProfile.totalSpent.toFixed(0)}€</p>
+                                </div>
+                            </div>
+
+                            {/* Racha */}
+                            <div className="bg-gradient-to-r from-orange-600/20 to-orange-400/20 rounded-2xl p-4 mb-6 border border-orange-500/20">
+                                <div className="flex items-center gap-3">
+                                    <div className="text-3xl">🔥</div>
+                                    <div>
+                                        <p className="text-orange-400 text-[9px] font-bold uppercase tracking-widest">{t.gastroProfile.streak}</p>
+                                        <p className="text-2xl font-black">{gastroProfile.streak} {t.gastroProfile.weeks}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Gráfico de gasto mensual */}
+                            <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                                <p className="text-zinc-400 text-[9px] font-bold uppercase tracking-widest mb-4">{t.gastroProfile.monthlySpend}</p>
+                                <div className="flex items-end gap-2 h-32">
+                                    {gastroProfile.monthlySpend.map((m, i) => {
+                                        const maxAmount = Math.max(...gastroProfile.monthlySpend.map(x => x.amount), 1);
+                                        const height = (m.amount / maxAmount) * 100;
+                                        return (
+                                            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                                                <span className="text-[9px] font-bold text-zinc-400">{m.amount > 0 ? `${m.amount.toFixed(0)}€` : ''}</span>
+                                                <div
+                                                    className="w-full bg-gradient-to-t from-orange-600 to-orange-400 rounded-lg transition-all duration-500"
+                                                    style={{ height: `${Math.max(height, 4)}%` }}
+                                                />
+                                                <span className="text-[9px] font-bold text-zinc-500 uppercase">{m.month}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => setIsGastroProfileOpen(false)}
+                                className="w-full mt-6 bg-white/10 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest"
+                            >
+                                Cerrar
+                            </button>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* ======= BOTÓN LLAMAR CAMARERO ======= */}
+            <div className="fixed bottom-32 right-6 z-40 flex flex-col gap-4">
+                {/* Botón Asistente IA */}
+                <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => {
+                        setIsAiChatOpen(true);
+                        if (aiMessages.length === 0) {
+                            setAiMessages([{ role: 'assistant', content: t.aiChat.welcome }]);
+                        }
+                    }}
+                    className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center bg-gradient-to-br from-indigo-600 to-purple-600 border border-white/20"
+                >
+                    <Sparkles className="w-7 h-7 text-white" />
+
+                    {/* Badge Notif. */}
+                    <div className="absolute top-0 right-0 w-4 h-4 bg-emerald-500 rounded-full border-2 border-zinc-900 animate-pulse" />
+                </motion.button>
+
+                <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={handleCallWaiter}
+                    disabled={isCallingWaiter || waiterCallCooldown > 0}
+                    className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all 
+                        ${waiterCallCooldown > 0
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-gradient-to-br from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400'}`}
+                >
+                    {isCallingWaiter ? (
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    ) : waiterCallCooldown > 0 ? (
+                        <span className="text-white text-[10px] font-black">{waiterCallCooldown}s</span>
+                    ) : (
+                        <HandIcon className="w-8 h-8 text-white" />
+                    )}
+                </motion.button>
+            </div>
+
+            {/* ======= PANEL DE CHAT IA ======= */}
+            <AnimatePresence>
+                {isAiChatOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsAiChatOpen(false)}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55]"
+                        />
+                        <motion.div
+                            initial={{ y: '100%' }}
+                            animate={{ y: 0 }}
+                            exit={{ y: '100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="fixed inset-x-0 bottom-0 bg-zinc-900 rounded-t-[2.5rem] z-[60] flex flex-col max-h-[85vh] border-t border-white/10 shadow-2xl shadow-purple-500/20"
+                        >
+                            {/* Cabecera */}
+                            <div className="p-6 pb-4 border-b border-white/5 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                                        <Bot className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-black text-white leading-none">{t.aiChat.title}</h2>
+                                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">{t.aiChat.subtitle}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsAiChatOpen(false)}
+                                    className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"
+                                >
+                                    <X className="w-6 h-6 text-white" />
+                                </button>
+                            </div>
+
+                            {/* Mensajes */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+                                {aiMessages.map((m, i) => (
+                                    <motion.div
+                                        initial={{ opacity: 0, x: m.role === 'user' ? 20 : -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        key={i}
+                                        className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm font-medium
+                                            ${m.role === 'user'
+                                                ? 'bg-indigo-600 text-white rounded-br-none'
+                                                : 'bg-zinc-800 text-zinc-200 rounded-bl-none border border-white/5'}`}
+                                        >
+                                            {m.content}
+                                        </div>
+                                    </motion.div>
+                                ))}
+                                {isAiTyping && (
+                                    <div className="flex justify-start">
+                                        <div className="bg-zinc-800 px-4 py-3 rounded-2xl rounded-bl-none border border-white/5 flex gap-1">
+                                            <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                            <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                            <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Sugerencias */}
+                            <div className="px-6 py-2 overflow-x-auto no-scrollbar">
+                                <div className="flex gap-2 whitespace-nowrap">
+                                    {t.aiChat.suggestions.map((s: string, i: number) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => handleSendAiMessage(s)}
+                                            className="px-4 py-2 bg-zinc-800 border border-white/10 rounded-full text-[10px] font-bold text-zinc-300 hover:bg-zinc-700 transition-colors"
+                                        >
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Input */}
+                            <div className="p-6 pt-2">
+                                <div className="relative flex items-center bg-zinc-800 rounded-2xl border border-white/10 p-1 focus-within:border-purple-500/50 transition-all">
+                                    <input
+                                        type="text"
+                                        value={aiInput}
+                                        onChange={(e) => setAiInput(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleSendAiMessage()}
+                                        placeholder={t.aiChat.placeholder}
+                                        className="flex-1 bg-transparent px-4 py-3 text-sm text-white focus:outline-none placeholder:text-zinc-500"
+                                    />
+                                    <button
+                                        onClick={() => handleSendAiMessage()}
+                                        className="p-3 bg-indigo-600 rounded-xl text-white hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20"
+                                    >
+                                        <Send className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
                         </motion.div>
                     </>
                 )}

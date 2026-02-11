@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ChefHat, CreditCard, LayoutDashboard, Loader2, Utensils, Package, CheckCircle, History, GlassWater, Users, TrendingUp } from 'lucide-react';
+import { ChefHat, CreditCard, LayoutDashboard, Loader2, Utensils, Package, CheckCircle, History, GlassWater, Users, TrendingUp, Hand } from 'lucide-react';
 import { Order } from '@/types';
 import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
@@ -17,7 +17,9 @@ export default function DashboardMesas() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [isConnected, setIsConnected] = useState(true);
+    const [waiterCalls, setWaiterCalls] = useState<any[]>([]);
     const ordersRef = useRef<Order[]>([]);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         ordersRef.current = orders;
@@ -61,6 +63,46 @@ export default function DashboardMesas() {
             clearInterval(syncInterval);
         };
     }, []);
+
+    useEffect(() => {
+        fetchWaiterCalls();
+        audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+
+        const waiterChannel = supabase
+            .channel('dashboard-waiter-calls')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'waiter_calls' },
+                (payload) => {
+                    setWaiterCalls(prev => [payload.new, ...prev]);
+                    if (audioRef.current) {
+                        audioRef.current.play().catch(e => console.log("Audio blocked"));
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'waiter_calls' },
+                (payload) => {
+                    if (payload.new.status !== 'pending') {
+                        setWaiterCalls(prev => prev.filter(c => c.id !== payload.new.id));
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => { supabase.removeChannel(waiterChannel); };
+    }, []);
+
+    const fetchWaiterCalls = async () => {
+        const { data } = await supabase.from('waiter_calls').select('*').eq('status', 'pending');
+        if (data) setWaiterCalls(data);
+    };
+
+    const dismissCall = async (callId: string) => {
+        await supabase.from('waiter_calls').update({ status: 'attended' }).eq('id', callId);
+        setWaiterCalls(prev => prev.filter(c => c.id !== callId));
+    };
 
     const fetchActiveOrders = async (silent = false) => {
         if (!silent) setLoading(true);
@@ -283,6 +325,30 @@ export default function DashboardMesas() {
                 </div>
             </header>
 
+            {/* ======= ALERTAS DE CAMARERO ======= */}
+            {waiterCalls.length > 0 && (
+                <div className="mb-10 flex flex-wrap gap-4">
+                    {waiterCalls.map((call) => (
+                        <div
+                            key={call.id}
+                            className="bg-red-600 animate-pulse-fast p-3 rounded-2xl flex items-center gap-3 shadow-xl border border-white/20"
+                        >
+                            <span className="text-xl">🖐️</span>
+                            <div className="leading-none">
+                                <p className="font-black text-white text-sm uppercase">Mesa {call.table_number}</p>
+                                <p className="text-white/70 text-[8px] font-bold uppercase mt-1">Llamada de cliente</p>
+                            </div>
+                            <button
+                                onClick={() => dismissCall(call.id)}
+                                className="ml-2 bg-white text-red-600 px-3 py-1 rounded-lg font-black text-[9px] uppercase hover:bg-zinc-100 transition-all"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {/* SECCIÓN SALA */}
             <div className="mb-12">
                 <h2 className="text-xl font-black italic mb-6 text-gray-400 flex items-center gap-2">
@@ -356,6 +422,15 @@ export default function DashboardMesas() {
                     {type}
                 </span>
                 <span className={`text-4xl font-black italic ${tableOrders.length > 0 ? 'scale-110 mb-1' : ''}`}>{display}</span>
+
+                {/* Indicador de Llamada de Camarero en la Mesa */}
+                {waiterCalls.some(c => c.table_number == num) && (
+                    <div className="absolute inset-0 bg-red-600/20 animate-pulse flex items-center justify-center">
+                        <div className="bg-red-600 p-3 rounded-full shadow-2xl animate-bounce">
+                            <Hand className="w-8 h-8 text-white" />
+                        </div>
+                    </div>
+                )}
 
                 {tableOrders.length > 0 && (
                     <>

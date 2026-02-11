@@ -19,6 +19,7 @@ export interface OrderItem {
     category: string;
     is_ready?: boolean;
     is_served?: boolean;
+    status?: 'pending' | 'cooking' | 'ready' | string;
 }
 
 export interface Customer {

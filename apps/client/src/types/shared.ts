@@ -84,6 +84,9 @@ export interface Order {
         price: number;
         qty: number;
         category?: string;
+        status?: string;
+        is_ready?: boolean;
+        is_served?: boolean;
     }[];
     drinks_served?: boolean;
     created_at?: string;

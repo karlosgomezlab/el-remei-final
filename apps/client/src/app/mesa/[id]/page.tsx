@@ -1023,79 +1023,75 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         );
                     };
 
-                    const getSmartMessage = (item: any, status: 'cooking' | 'ready') => {
-                        // Limpieza agresiva de categoría: si es null/undefined -> 'otros'
+                    const getSmartMessage = (item: any, status: string) => {
                         const rawCat = item.category || 'otros';
                         const cat = String(rawCat).toLowerCase().trim();
+                        const isDrink = ['bebida', 'vinos', 'cervezas', 'refrescos', 'cafe', 'infusiones', 'cafes'].includes(cat);
 
                         if (status === 'cooking') {
-                            // 1. BEBIDAS Y CAFÉS
                             if (['bebida', 'vinos', 'cervezas', 'refrescos'].includes(cat)) {
                                 return { ...t.notifications.cooking.drink, msg: t.notifications.cooking.drink.msg.replace('{item}', item.name), icon: Wine };
                             }
                             if (['cafe', 'infusiones', 'cafes'].includes(cat)) {
                                 return { ...t.notifications.cooking.coffee, msg: t.notifications.cooking.coffee.msg.replace('{item}', item.name), icon: Coffee };
                             }
-
-                            // 2. FUEGO (Solo segundos y platos fuertes)
                             if (['segundo', 'carnes', 'pescados', 'pizza', 'hamburguesas', 'brasa'].includes(cat)) {
                                 return { ...t.notifications.cooking.grill, msg: t.notifications.cooking.grill.msg.replace('{item}', item.name), icon: Flame };
                             }
-
-                            // 3. TODO LO DEMÁS (Entrantes, Primeros, Postres, Ensaladas, Errores...) -> PREPARANDO
                             if (['postre', 'dulces'].includes(cat)) {
                                 return { ...t.notifications.cooking.sweet, msg: t.notifications.cooking.sweet.msg.replace('{item}', item.name), icon: CakeSlice };
                             }
-
-                            // DEFAULT ABSOLUTO
                             return { ...t.notifications.cooking.default, msg: t.notifications.cooking.default.msg.replace('{item}', item.name), icon: Utensils };
                         }
 
-                        // Status READY
                         if (status === 'ready') {
                             return { ...t.notifications.ready, msg: t.notifications.ready.msg.replace('{item}', item.name), icon: CheckCircle };
+                        }
+
+                        if (status === 'delivering') {
+                            return {
+                                title: isDrink ? "¡Bebida en camino! 🥤" : "¡Plato en camino! 🏃",
+                                msg: isDrink ? `Tu ${item.name} está saliendo de la barra.` : `Tu ${item.name} está saliendo de cocina.`,
+                                icon: Truck
+                            };
+                        }
+
+                        if (status === 'served') {
+                            return {
+                                title: isDrink ? "¡Salud! 🍻" : "¡Buen provecho! 🍽️",
+                                msg: `Tu ${item.name} ya está en la mesa.`,
+                                icon: isDrink ? Beer : PartyPopper
+                            };
                         }
 
                         return { ...t.notifications.update, msg: t.notifications.update.msg.replace('{status}', status), icon: CheckCircle };
                     };
 
-                    // 1. Detectar cambios a nivel de PLATO (Granularidad)
+                    // 1. Detectar cambios a nivel de PLATO (SIEMPRE POR PLATO)
                     if (newOrder.items && oldOrder && oldOrder.items) {
                         newOrder.items.forEach((newItem: any, index: number) => {
                             const oldItem = oldOrder.items[index];
                             if (!oldItem) return;
 
-                            // Si el estado ha cambiado y es relevante
-                            if (newItem.status !== oldItem.status) {
-                                if (newItem.status === 'cooking' || newItem.status === 'ready') {
-                                    if (navigator.vibrate) navigator.vibrate([100]);
+                            const notificationKey = `${newOrder.id}-${index}-${newItem.status}`;
+                            const relevantStatuses = ['cooking', 'ready', 'delivering', 'served'];
 
-                                    const smart = getSmartMessage(newItem, newItem.status);
-                                    showCustomNotification(newItem.status, smart.title, smart.msg, smart.icon);
-                                }
+                            if (newItem.status !== oldItem.status && relevantStatuses.includes(newItem.status) && !lastNotifiedStatusRef.current[notificationKey]) {
+                                if (navigator.vibrate) navigator.vibrate([100]);
+                                const smart = getSmartMessage(newItem, newItem.status);
+                                showCustomNotification(newItem.status as any, smart.title, smart.msg, smart.icon);
+                                lastNotifiedStatusRef.current[notificationKey] = 'true';
                             }
                         });
                     }
 
-                    // 2. Cambios de estado GENERAL (Delivering/Served)
-                    // Solución EXTREMADAMENTE SIMPLE: Si el estado es relevante, avisamos. Punto.
-                    if (['delivering', 'served'].includes(newOrder.status)) {
-                        const statusConfig = {
-                            delivering: { type: 'delivering', ...t.notifications.delivering },
-                            served: { type: 'served', ...t.notifications.served_msg }
-                        } as const;
-
-                        const config = statusConfig[newOrder.status as keyof typeof statusConfig];
-
-                        if (config) {
-                            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-
-                            showCustomNotification(config.type, config.title, config.msg);
-
-                            if (newOrder.status === 'served') {
-                                setTimeout(() => setIsRatingOpen(true), 2000);
-                            }
+                    // 2. Eventos de PEDIDO completo
+                    const lastStatus = lastNotifiedStatusRef.current[newOrder.id];
+                    if (newOrder.status !== lastStatus) {
+                        if (newOrder.status === 'served') {
+                            setTimeout(() => setIsRatingOpen(true), 2000);
                         }
+                        lastNotifiedStatusRef.current[newOrder.id] = newOrder.status;
                     }
                 }
             )

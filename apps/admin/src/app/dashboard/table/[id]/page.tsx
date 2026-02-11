@@ -87,38 +87,40 @@ export default function TableDetail({ params }: { params: { id: string } | Promi
         }
     };
 
-    const markDrinksAsServed = async (orderId: string) => {
-        const { error } = await supabase
-            .from('orders')
-            .update({ drinks_served: true })
-            .eq('id', orderId);
-
-        if (error) toast.error('Error al servir bebidas');
-    };
-
-    const markFoodAsServed = async (orderId: string, itemId: string) => {
+    const markItemAsServed = async (orderId: string, itemId: string) => {
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
 
         const updatedItems = order.items.map((item: any) =>
-            item.id === itemId ? { ...item, is_served: true } : item
+            item.id === itemId ? { ...item, is_served: true, status: 'delivering' } : item
         );
+
+        // Actualizar también el flag global de bebidas si todas están servidas
+        const drinkCategories = ['bebida', 'vinos', 'cervezas', 'refrescos', 'cafe', 'infusiones', 'cafes', 'cava', 'licores'];
+        const allDrinksServed = updatedItems
+            .filter((i: any) => drinkCategories.includes(String(i.category || '').toLowerCase().trim()))
+            .every((i: any) => i.is_served);
 
         const { error } = await supabase
             .from('orders')
-            .update({ items: updatedItems, status: 'delivering' })
+            .update({
+                items: updatedItems,
+                status: 'delivering',
+                drinks_served: allDrinksServed
+            })
             .eq('id', orderId);
 
         if (error) {
-            toast.error('Error al marcar plato como servido');
+            toast.error('Error al marcar producto como servido');
         } else {
-            toast.success('Plato servido');
+            toast.success('Producto servido');
         }
     };
 
-    const allItems = orders.flatMap(o => o.items.map(item => ({ ...item, drinks_served: o.drinks_served, orderId: o.id })));
-    const beverages = allItems.filter((item: any) => item.category?.toLowerCase() === 'bebida');
-    const foodItems = allItems.filter((item: any) => item.category?.toLowerCase() !== 'bebida');
+    const drinkCategories = ['bebida', 'vinos', 'cervezas', 'refrescos', 'cafe', 'infusiones', 'cafes', 'cava', 'licores'];
+    const allItems = orders.flatMap(o => o.items.map(item => ({ ...item, orderId: o.id })));
+    const beverages = allItems.filter((item: any) => drinkCategories.includes(String(item.category || '').toLowerCase().trim()));
+    const foodItems = allItems.filter((item: any) => !drinkCategories.includes(String(item.category || '').toLowerCase().trim()));
     const totalAmount = orders.reduce((acc, o) => acc + Number(o.total_amount || 0), 0);
     const allPaid = orders.length > 0 && orders.every(o => o.is_paid);
 
@@ -188,7 +190,7 @@ export default function TableDetail({ params }: { params: { id: string } | Promi
                                 </div>
                                 {item.is_ready && !item.is_served && (
                                     <button
-                                        onClick={() => markFoodAsServed(item.orderId, item.id)}
+                                        onClick={() => markItemAsServed(item.orderId, item.id)}
                                         className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
                                     >
                                         <CheckCircle className="w-3 h-3" />
@@ -214,16 +216,16 @@ export default function TableDetail({ params }: { params: { id: string } | Promi
                     <div className="space-y-4">
                         {beverages.length > 0 ? beverages.map((item: any, i) => (
                             <div key={i} className="flex flex-col gap-2">
-                                <div className={`flex justify-between items-center p-4 rounded-2xl border ${item.drinks_served ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-gray-800/30 border-white/5'}`}>
+                                <div className={`flex justify-between items-center p-4 rounded-2xl border ${item.is_served ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-gray-800/30 border-white/5'}`}>
                                     <div className="flex items-center gap-3">
-                                        {item.drinks_served ? <CheckCircle className="w-5 h-5 text-emerald-500" /> : <GlassWater className="w-4 h-4 text-blue-400" />}
-                                        <span className={`font-bold ${item.drinks_served ? 'line-through opacity-40' : ''}`}>{item.name}</span>
+                                        {item.is_served ? <CheckCircle className="w-5 h-5 text-emerald-500" /> : <GlassWater className="w-4 h-4 text-blue-400" />}
+                                        <span className={`font-bold ${item.is_served ? 'line-through opacity-40' : ''}`}>{item.name}</span>
                                     </div>
                                     <span className="text-xs font-black opacity-40">x{item.qty || 1}</span>
                                 </div>
-                                {!item.drinks_served && (
+                                {!item.is_served && (
                                     <button
-                                        onClick={() => markDrinksAsServed(item.orderId)}
+                                        onClick={() => markItemAsServed(item.orderId, item.id)}
                                         className="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-[10px] font-black uppercase transition-all"
                                     >
                                         Marcar como Servido

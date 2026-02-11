@@ -318,9 +318,14 @@ export default function DashboardMesas() {
                         <History className="w-4 h-4" />
                         HISTORIAL
                     </Link>
-                    <Link href="/stats" className="flex items-center gap-2 bg-purple-600/10 text-purple-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-purple-600/20 transition-all border border-purple-500/20">
-                        <TrendingUp className="w-4 h-4" />
-                        ESTADÍSTICAS
+                    <Link href="/stats" className="bg-gradient-to-br from-purple-600 to-indigo-700 p-4 rounded-2xl flex items-center gap-4 transition-all hover:scale-105 shadow-lg group">
+                        <div className="bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-all">
+                            <TrendingUp className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-white/70 uppercase font-black">Métricas</p>
+                            <p className="text-xs font-bold text-white uppercase italic">Ver BI</p>
+                        </div>
                     </Link>
                 </div>
             </header>

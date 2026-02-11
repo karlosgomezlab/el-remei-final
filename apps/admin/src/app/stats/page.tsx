@@ -11,7 +11,8 @@ import {
     Users,
     Award,
     ChevronRight,
-    Loader2
+    Loader2,
+    CreditCard
 } from 'lucide-react';
 import Link from 'next/link';
 import { Toaster } from 'sonner';
@@ -34,10 +35,27 @@ export default function MobileStatsPage() {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<DailyStats | null>(null);
     const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
+    const [pendingDebt, setPendingDebt] = useState(0);
+    const [debtors, setDebtors] = useState<any[]>([]);
 
     useEffect(() => {
         fetchStats();
+        fetchDebtStats();
     }, [dateRange]);
+
+    const fetchDebtStats = async () => {
+        const { data } = await supabase
+            .from('customers')
+            .select('*')
+            .gt('current_debt', 0)
+            .order('current_debt', { ascending: false });
+
+        if (data) {
+            setDebtors(data.slice(0, 5));
+            const total = data.reduce((sum, c) => sum + (Number(c.current_debt) || 0), 0);
+            setPendingDebt(total);
+        }
+    };
 
     const fetchStats = async () => {
         setLoading(true);
@@ -187,14 +205,14 @@ export default function MobileStatsPage() {
             </header>
 
             {/* KPI CARDS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
                 <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[2.5rem] relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-500">
                         <DollarSign className="w-32 h-32" />
                     </div>
                     <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-2">Ventas Totales</p>
                     <h3 className="text-5xl font-black italic text-emerald-400 mb-1">{stats?.totalSales.toFixed(2)}€</h3>
-                    <p className="text-emerald-500/50 text-[10px] uppercase font-bold tracking-widest">+12% vs ayer</p>
+                    <p className="text-emerald-500/50 text-[10px] uppercase font-bold tracking-widest">Periodo seleccionado</p>
                 </div>
 
                 <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[2.5rem] relative overflow-hidden group">
@@ -208,6 +226,15 @@ export default function MobileStatsPage() {
 
                 <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[2.5rem] relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-500">
+                        <CreditCard className="w-32 h-32 text-red-500" />
+                    </div>
+                    <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-2">Deuda Pendiente</p>
+                    <h3 className="text-5xl font-black italic text-red-400 mb-1">{pendingDebt.toFixed(2)}€</h3>
+                    <p className="text-red-500/50 text-[10px] uppercase font-bold tracking-widest">Crédito a cobrar</p>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[2.5rem] relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-500">
                         <Award className="w-32 h-32" />
                     </div>
                     <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-2">Ticket Medio</p>
@@ -216,63 +243,90 @@ export default function MobileStatsPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* TOP PRODUCTS */}
-                <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[2.5rem]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                {/* DEBT CONTROL */}
+                <div className="bg-red-900/10 border border-red-500/20 p-8 rounded-[2.5rem] relative overflow-hidden">
                     <div className="flex items-center gap-4 mb-8">
-                        <div className="p-3 bg-yellow-500/10 rounded-2xl text-yellow-500">
-                            <Award className="w-6 h-6" />
+                        <div className="p-3 bg-red-500/20 rounded-2xl text-red-500">
+                            <CreditCard className="w-6 h-6" />
                         </div>
-                        <h3 className="text-xl font-black italic uppercase tracking-wider">Productos Estrella</h3>
+                        <h3 className="text-xl font-black italic uppercase tracking-wider text-red-500">Top Deudores (Riesgo)</h3>
                     </div>
-                    <div className="space-y-6">
-                        {stats?.topProducts.map((prod, i) => (
-                            <div key={i} className="flex items-center gap-4 group cursor-default">
-                                <span className={`text-2xl font-black italic w-8 text-center ${i === 0 ? 'text-yellow-500' : 'text-gray-700'}`}>#{i + 1}</span>
-                                <div className="flex-1">
-                                    <div className="flex justify-between items-end mb-2">
-                                        <p className="font-bold text-gray-200 group-hover:text-orange-500 transition-colors">{prod.name}</p>
-                                        <p className="font-black text-gray-500 text-xs tracking-widest">{prod.qty} VENTAS</p>
-                                    </div>
-                                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-orange-600 to-yellow-500 rounded-full"
-                                            style={{ width: `${(prod.revenue / (stats.topProducts[0].revenue || 1)) * 100}%` }}
-                                        />
-                                    </div>
+                    <div className="space-y-4">
+                        {debtors.length === 0 && <p className="text-gray-500 italic text-sm">Sin deudas pendientes...</p>}
+                        {debtors.map((d, i) => (
+                            <div key={i} className="flex items-center justify-between p-4 bg-black/40 rounded-2xl border border-red-500/10">
+                                <div>
+                                    <p className="font-bold text-gray-200">{d.name}</p>
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-widest">{d.phone}</p>
                                 </div>
-                                <p className="font-black italic text-emerald-400 w-20 text-right">{prod.revenue.toFixed(0)}€</p>
+                                <div className="text-right">
+                                    <p className="font-black text-red-400 italic text-lg">{d.current_debt.toFixed(2)}€</p>
+                                    <p className="text-[9px] text-gray-600 font-bold uppercase">Límite: {d.credit_limit}€</p>
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* SALES BY CATEGORY */}
-                <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[2.5rem]">
-                    <div className="flex items-center gap-4 mb-8">
-                        <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-500">
-                            <TrendingUp className="w-6 h-6" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* TOP PRODUCTS */}
+                    <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[2.5rem]">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="p-3 bg-yellow-500/10 rounded-2xl text-yellow-500">
+                                <Award className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-xl font-black italic uppercase tracking-wider">Productos Estrella</h3>
                         </div>
-                        <h3 className="text-xl font-black italic uppercase tracking-wider">Ventas por Categoría</h3>
-                    </div>
-                    <div className="space-y-4">
-                        {stats?.salesByCategory.map((cat, i) => (
-                            <div key={i} className="bg-black/40 p-4 rounded-3xl border border-white/5 flex items-center justify-between group hover:border-purple-500/30 transition-all">
-                                <div>
-                                    <p className="font-black uppercase text-xs tracking-widest text-gray-500 mb-1">{cat.category}</p>
-                                    <p className="text-xl font-black italic text-gray-200">{cat.qty} <span className="text-xs text-gray-600 not-italic font-medium">unid.</span></p>
+                        <div className="space-y-6">
+                            {stats?.topProducts.map((prod, i) => (
+                                <div key={i} className="flex items-center gap-4 group cursor-default">
+                                    <span className={`text-2xl font-black italic w-8 text-center ${i === 0 ? 'text-yellow-500' : 'text-gray-700'}`}>#{i + 1}</span>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <p className="font-bold text-gray-200 group-hover:text-orange-500 transition-colors">{prod.name}</p>
+                                            <p className="font-black text-gray-500 text-xs tracking-widest">{prod.qty} VENTAS</p>
+                                        </div>
+                                        <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-orange-600 to-yellow-500 rounded-full"
+                                                style={{ width: `${(prod.revenue / (stats?.topProducts[0]?.revenue || 1)) * 100}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="font-black italic text-emerald-400 w-20 text-right">{prod.revenue.toFixed(0)}€</p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-xl font-black italic text-purple-400">{cat.revenue.toFixed(2)}€</p>
-                                    <div className="h-1 w-24 bg-gray-800 rounded-full mt-2 ml-auto overflow-hidden">
-                                        <div
-                                            className="h-full bg-purple-500"
-                                            style={{ width: `${(cat.revenue / (stats.salesByCategory[0].revenue || 1)) * 100}%` }}
-                                        />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* SALES BY CATEGORY */}
+                    <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[2.5rem]">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-500">
+                                <TrendingUp className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-xl font-black italic uppercase tracking-wider">Ventas por Categoría</h3>
+                        </div>
+                        <div className="space-y-4">
+                            {stats?.salesByCategory.map((cat, i) => (
+                                <div key={i} className="bg-black/40 p-4 rounded-3xl border border-white/5 flex items-center justify-between group hover:border-purple-500/30 transition-all">
+                                    <div>
+                                        <p className="font-black uppercase text-xs tracking-widest text-gray-500 mb-1">{cat.category}</p>
+                                        <p className="text-xl font-black italic text-gray-200">{cat.qty} <span className="text-xs text-gray-600 not-italic font-medium">unid.</span></p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xl font-black italic text-purple-400">{cat.revenue.toFixed(2)}€</p>
+                                        <div className="h-1 w-24 bg-gray-800 rounded-full mt-2 ml-auto overflow-hidden">
+                                            <div
+                                                className="h-full bg-purple-500"
+                                                style={{ width: `${(cat.revenue / (stats?.salesByCategory[0]?.revenue || 1)) * 100}%` }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -288,7 +342,7 @@ export default function MobileStatsPage() {
                     </div>
                     <div className="flex items-end gap-2 h-48 min-w-[600px]">
                         {stats?.hourlySales.map((hour, i) => {
-                            const maxRev = Math.max(...stats.hourlySales.map(h => h.revenue));
+                            const maxRev = Math.max(...(stats?.hourlySales?.map(h => h.revenue) || [0]));
                             const heightPercent = maxRev > 0 ? (hour.revenue / maxRev) * 100 : 0;
                             return (
                                 <div key={i} className="flex-1 flex flex-col justify-end items-center gap-2 group">

@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw, Coffee, Beer, Pizza, Heart, Flame, Truck, PartyPopper, Wine, CakeSlice, Hand as HandIcon, Sparkles, Bot, Send } from 'lucide-react';
+import { ShoppingCart, Plus, Loader2, Search, ArrowLeft, Utensils, CheckCircle, Trash2, Minus, X, Wallet, UserCircle, ShieldCheck, CreditCard, Smartphone, History as HistoryIcon, AlertCircle, Star, RefreshCw, Coffee, Beer, Pizza, Heart, Flame, Truck, PartyPopper, Wine, CakeSlice, Hand as HandIcon, Sparkles, Bot, Send, Mic, MicOff } from 'lucide-react';
 import { toast, ToastOptions } from 'react-toastify';
 import confetti from 'canvas-confetti';
-import { Product, Customer, Prize, HappyHourConfig, KitchenConfig } from '@/types/shared';
+import { Product, Customer, Prize, HappyHourConfig, KitchenConfig, Order } from '@/types/shared';
 import { getProductImage } from '@/utils/productImages';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -71,7 +71,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     const [verificationInput, setVerificationInput] = useState('');
     const [isVerifying, setIsVerifying] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [customerHistory, setCustomerHistory] = useState<any[]>([]);
+    const [customerHistory, setCustomerHistory] = useState<Order[]>([]); // To be refactored to Order[] if available in types
     const [isRatingOpen, setIsRatingOpen] = useState(false);
     const [rating, setRating] = useState(0);
     const [isTipPhase, setIsTipPhase] = useState(false);
@@ -98,7 +98,11 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     // --- Llamar al Camarero ---
     const [isCallingWaiter, setIsCallingWaiter] = useState(false);
     const [waiterCallCooldown, setWaiterCallCooldown] = useState(0);
-
+    const [isRouletteOpen, setIsRouletteOpen] = useState(false);
+    const [isSpinning, setIsSpinning] = useState(false);
+    const [wonPrize, setWonPrize] = useState<Prize | null>(null);
+    const [spinRotation, setSpinRotation] = useState(0);
+    const [lastRatedOrderId, setLastRatedOrderId] = useState<string | null>(null);
 
     // --- BLOQUE E: Happy Hour ---
     const [happyHourConfig, setHappyHourConfig] = useState<HappyHourConfig | null>(null);
@@ -106,11 +110,6 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
     // --- BLOQUE A: Ruleta del Postre ---
     const [prizes, setPrizes] = useState<Prize[]>([]);
-    const [isRouletteOpen, setIsRouletteOpen] = useState(false);
-    const [isSpinning, setIsSpinning] = useState(false);
-    const [wonPrize, setWonPrize] = useState<Prize | null>(null);
-    const [spinRotation, setSpinRotation] = useState(0);
-    const [lastRatedOrderId, setLastRatedOrderId] = useState<string | null>(null);
 
     // --- BLOQUE C: Tiempo Estimado ---
     const [kitchenConfigs, setKitchenConfigs] = useState<KitchenConfig[]>([]);
@@ -134,6 +133,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([]);
     const [aiInput, setAiInput] = useState('');
     const [isAiTyping, setIsAiTyping] = useState(false);
+    const [isListening, setIsListening] = useState(false);
 
 
     // --- MULTI-IDIOMA ---
@@ -806,7 +806,14 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
 
         try {
             const { data, error } = await supabase.functions.invoke('ai-assistant', {
-                body: { messages: updatedMessages.map(m => ({ role: m.role, content: m.content })) }
+                body: {
+                    messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+                    cart: cart.map(item => ({
+                        id: item.product.id,
+                        name: item.product.name,
+                        qty: item.qty
+                    }))
+                }
             });
 
             if (error) {
@@ -815,7 +822,45 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             }
 
             if (data?.content) {
-                setAiMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
+                let cleanContent = data.content;
+
+                // IA Operativa: Buscar TODAS las etiquetas de acción [ACTION_ADD_TO_CART:ID]
+                const actionRegex = /\[ACTION_ADD_TO_CART:([^\]]+)\]/g;
+                let match;
+                let addedAny = false;
+                while ((match = actionRegex.exec(cleanContent)) !== null) {
+                    const productId = match[1].trim();
+                    const productToAdd = menu.find(p => p.id === productId);
+                    if (productToAdd) {
+                        addToCart(productToAdd);
+                        toast.success(`Añadido: ${productToAdd.name}`, {
+                            position: "top-center",
+                            autoClose: 2000,
+                            icon: "🤖"
+                        });
+                        addedAny = true;
+                        console.log(`IA añadió al carrito: ${productToAdd.name} (ID: ${productId})`);
+                    } else {
+                        console.warn(`IA intentó añadir producto no encontrado. ID: ${productId}`);
+                        // Intento de búsqueda por nombre si el ID falla (fallback proactivo)
+                        const fallbackProduct = menu.find(p =>
+                            cleanContent.toLowerCase().includes(p.name.toLowerCase())
+                        );
+                        if (fallbackProduct && !addedAny) {
+                            addToCart(fallbackProduct);
+                            toast.success(`Añadido: ${fallbackProduct.name}`, {
+                                position: "top-center",
+                                autoClose: 2000,
+                                icon: "🤖"
+                            });
+                        }
+                    }
+                }
+
+                // Limpiar TODAS las etiquetas del mensaje para que no sean visibles
+                cleanContent = cleanContent.replace(/\[ACTION_ADD_TO_CART:[^\]]+\]/g, '').trim();
+
+                setAiMessages(prev => [...prev, { role: 'assistant', content: cleanContent }]);
             } else if (data?.error) {
                 throw new Error(data.error);
             } else {
@@ -831,6 +876,37 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
         }
     };
 
+    const startListening = () => {
+        if (typeof window === 'undefined') return;
+
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            toast.error("Tu navegador no soporta reconocimiento de voz");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = language === 'es' ? 'es-ES' : language === 'ca' ? 'ca-ES' : 'en-US';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => setIsListening(true);
+        recognition.onend = () => setIsListening(false);
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setAiInput(transcript);
+        };
+        recognition.onerror = (event: any) => {
+            console.error("Speech Recognition Error:", event.error);
+            setIsListening(false);
+            if (event.error === 'not-allowed') {
+                toast.error("Permiso de micrófono denegado");
+            }
+        };
+
+        recognition.start();
+    };
+
     // Cooldown timer para no saturar al camarero
     useEffect(() => {
         if (waiterCallCooldown > 0) {
@@ -842,7 +918,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
     }, [waiterCallCooldown]);
 
     // Ref para mantener el estado anterior y poder comparar
-    const prevOrdersRef = useRef<any[]>([]);
+    const prevOrdersRef = useRef<Order[]>([]);
     // Ref para controlar las notificaciones ya enviadas y evitar duplicados/race conditions
     const lastNotifiedStatusRef = useRef<Record<string, string>>({});
 
@@ -1164,10 +1240,12 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             // Plato más pedido
             const dishCount: Record<string, number> = {};
             const categoryCount: Record<string, number> = {};
-            orders.forEach((order: any) => {
-                (order.items || []).forEach((item: any) => {
-                    dishCount[item.name] = (dishCount[item.name] || 0) + (item.qty || 1);
-                    categoryCount[item.category] = (categoryCount[item.category] || 0) + (item.qty || 1);
+            (orders as Order[]).forEach((order) => {
+                (order.items || []).forEach((item) => {
+                    const itemName = item.name || 'Sin nombre';
+                    const itemCategory = item.category || 'Otros';
+                    dishCount[itemName] = (dishCount[itemName] || 0) + (item.qty || 1);
+                    categoryCount[itemCategory] = (categoryCount[itemCategory] || 0) + (item.qty || 1);
                 });
             });
 
@@ -1181,15 +1259,15 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                 const monthLabel = d.toLocaleDateString('es', { month: 'short' });
-                const total = orders
-                    .filter((o: any) => o.created_at?.startsWith(monthKey))
-                    .reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0);
+                const total = (orders as Order[])
+                    .filter((o) => o.created_at?.startsWith(monthKey))
+                    .reduce((sum: number, o) => sum + (Number(o.total_amount) || 0), 0);
                 monthlySpend.push({ month: monthLabel, amount: total });
             }
 
             // Racha de semanas consecutivas
             const weekSet = new Set<string>();
-            orders.forEach((o: any) => {
+            (orders as Order[]).forEach((o) => {
                 if (o.created_at) {
                     const d = new Date(o.created_at);
                     const week = `${d.getFullYear()}-W${Math.ceil(((d.getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7)}`;
@@ -1204,7 +1282,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                 } else break;
             }
 
-            const totalSpent = orders.reduce((sum: number, o: any) => sum + (Number(o.total_amount) || 0), 0);
+            const totalSpent = (orders as Order[]).reduce((sum: number, o) => sum + (Number(o.total_amount) || 0), 0);
             const points = customer?.points || 0;
             const foodieLevel = points >= 5000 ? 'vip' : points >= 2000 ? 'foodie' : points >= 500 ? 'habitual' : 'novato';
 
@@ -3185,13 +3263,19 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             {/* Input */}
                             <div className="p-6 pt-2">
                                 <div className="relative flex items-center bg-zinc-800 rounded-2xl border border-white/10 p-1 focus-within:border-purple-500/50 transition-all">
+                                    <button
+                                        onClick={startListening}
+                                        className={`p-3 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+                                    >
+                                        {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                                    </button>
                                     <input
                                         type="text"
                                         value={aiInput}
                                         onChange={(e) => setAiInput(e.target.value)}
                                         onKeyPress={(e) => e.key === 'Enter' && handleSendAiMessage()}
                                         placeholder={t.aiChat.placeholder}
-                                        className="flex-1 bg-transparent px-4 py-3 text-sm text-white focus:outline-none placeholder:text-zinc-500"
+                                        className="flex-1 bg-transparent px-2 py-3 text-sm text-white focus:outline-none placeholder:text-zinc-500"
                                     />
                                     <button
                                         onClick={() => handleSendAiMessage()}

@@ -111,7 +111,9 @@ export default function KitchenHistory() {
 
     const getSortedOrders = () => {
         return [...orders].sort((a, b) => {
-            if (sortOption === 'time') return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+            const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+            const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+            if (sortOption === 'time') return timeB - timeA;
             if (sortOption === 'table') return a.table_number - b.table_number;
             // Status sort logic could be complex as order has multiple items, simplifying to table for now if status selected
             return 0;
@@ -207,7 +209,7 @@ export default function KitchenHistory() {
                             <div className="p-4 bg-zinc-900 flex justify-between items-center border-b border-zinc-800">
                                 <span className="font-black text-lg text-zinc-400">MESA {order.table_number}</span>
                                 <span className="text-[10px] font-bold uppercase text-zinc-600 tracking-widest">
-                                    {new Date(order.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {new Date(order.updated_at || order.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             </div>
 

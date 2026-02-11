@@ -68,3 +68,22 @@ export interface Customer {
     last_reminder_sent?: string;
     created_at?: string;
 }
+export interface Order {
+    id: string;
+    table_number: number;
+    status: 'pending' | 'cooking' | 'ready' | 'served' | 'delivering';
+    total_amount: number;
+    payment_method: 'cash' | 'card' | 'online' | 'credit';
+    is_paid: boolean;
+    customer_id?: string;
+    items: {
+        id: string;
+        name: string;
+        price: number;
+        qty: number;
+        category?: string;
+    }[];
+    drinks_served?: boolean;
+    created_at?: string;
+    updated_at?: string;
+}

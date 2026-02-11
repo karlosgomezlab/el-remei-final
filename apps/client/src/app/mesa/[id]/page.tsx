@@ -2229,13 +2229,13 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                                                         onClick={() => {
                                                             const itemsToAdd = order.items.map((item: any) => ({
                                                                 product: {
-                                                                    id: item.product_id,
+                                                                    id: item.id, // item.id is the product id in this context
                                                                     name: item.name,
                                                                     price: item.price,
                                                                     category: item.category || 'otro',
                                                                     is_available: true
                                                                 },
-                                                                quantity: item.quantity
+                                                                qty: item.qty
                                                             }));
                                                             setCart([...cart, ...itemsToAdd]);
                                                             toast.success(t.profile.orderRepeated);

@@ -3108,13 +3108,13 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                     <>
                         <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50"
+                            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[220]"
                             onClick={() => setIsGastroProfileOpen(false)}
                         />
                         <motion.div
                             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
                             transition={{ type: 'spring', damping: 25 }}
-                            className="fixed inset-x-0 bottom-0 bg-gradient-to-b from-zinc-900 to-black rounded-t-[3rem] p-6 z-50 text-white max-h-[85vh] overflow-y-auto"
+                            className="fixed inset-x-0 bottom-0 bg-gradient-to-b from-zinc-900 to-black rounded-t-[3rem] p-6 z-[221] text-white max-h-[85vh] overflow-y-auto"
                         >
                             <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6" />
 

@@ -303,9 +303,25 @@ export default function KitchenView() {
                                         ARCHIVAR COMANDA
                                     </button>
                                 ) : (
-                                    <div className="w-full py-4 rounded-2xl border-2 border-dashed border-zinc-700 text-zinc-600 font-bold text-xs uppercase tracking-widest text-center">
-                                        Completa todos los platos
-                                    </div>
+                                    <button
+                                        onClick={async () => {
+                                            // 1. Mark all pending/cooking items as ready locally & DB
+                                            const newItems = order.items.map((i: any) => ({ ...i, status: 'ready', is_ready: true }));
+
+                                            // Optimistic update
+                                            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, items: newItems, status: 'ready' } : o));
+
+                                            // 2. Update DB
+                                            await supabase.from('orders').update({ items: newItems, status: 'ready' }).eq('id', order.id);
+
+                                            // 3. Mark order as ready (Archive)
+                                            markAsReady(order.id);
+                                        }}
+                                        className="w-full py-4 rounded-2xl border-2 border-dashed border-zinc-700 hover:border-orange-500 hover:bg-orange-500/10 text-zinc-500 hover:text-orange-500 font-bold text-xs uppercase tracking-widest text-center transition-all cursor-pointer flex justify-center items-center gap-2 group"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                        MARCAR TODO Y ARCHIVAR
+                                    </button>
                                 )}
                             </div>
                         </div>

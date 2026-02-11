@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ChefHat, CreditCard, LayoutDashboard, Loader2, Utensils, Package, CheckCircle, History, GlassWater, Users, TrendingUp, Hand } from 'lucide-react';
+import { ChefHat, CreditCard, LayoutDashboard, Loader2, Utensils, Package, CheckCircle, History, GlassWater, Users, TrendingUp, Hand, Scale } from 'lucide-react';
 import { Order } from '@/types';
 import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
+import { notify } from '@/lib/notifications';
+import { LowStockAlerts } from '@/components/LowStockAlerts'; // Alertas de stock bajo en tiempo real
 
 // Inicialización de Supabase
 const supabase = createClient(
@@ -126,10 +128,7 @@ export default function DashboardMesas() {
     const handleRealtimeUpdate = (payload: any) => {
         if (payload.eventType === 'INSERT') {
             setOrders((prev) => [...prev, payload.new]);
-            toast.success('¡Nuevo Pedido!', {
-                description: `Mesa ${payload.new.table_number}`,
-                action: { label: 'Ver', onClick: () => { } }
-            });
+            notify.newOrder(payload.new.table_number);
         } else if (payload.eventType === 'UPDATE') {
             if (payload.new.status === 'served') {
                 setOrders((prev) => prev.filter(o => o.id !== payload.new.id));
@@ -146,18 +145,12 @@ export default function DashboardMesas() {
                         if (!notifiedItemsRef.current.has(notificationId)) {
                             notifiedItemsRef.current.add(notificationId);
 
-                            toast('🍽️ ¡PLATO LISTO!', {
-                                description: `${item.name} para Mesa ${payload.new.table_number}`,
-                                duration: 8000,
-                                style: {
-                                    background: 'rgba(16, 185, 129, 0.9)',
-                                    color: '#fff',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    backdropFilter: 'blur(10px)',
-                                    fontWeight: 'bold',
-                                    borderRadius: '1.25rem'
-                                }
-                            });
+
+                            notify.kitchen(
+                                '¡Plato Listo!',
+                                item.name,
+                                `Mesa ${payload.new.table_number}`
+                            );
                         }
                     });
                 }
@@ -168,21 +161,42 @@ export default function DashboardMesas() {
         }
     };
 
-    // Función para liberar una mesa por completo
+    // Función para liberar una mesa por completo con deducción de stock
     const markAsServed = async (tableNumber: number) => {
-        // Actualizamos localmente para que desaparezca al instante
+        // Optimistic update
         setOrders(prev => prev.filter(o => o.table_number !== tableNumber));
 
-        const { error } = await supabase
-            .from('orders')
-            .update({ status: 'served' })
-            .eq('table_number', tableNumber)
-            .neq('status', 'served');
+        try {
+            // 1. Obtener pedidos de la mesa
+            const { data: dbOrders } = await supabase
+                .from('orders')
+                .select('id')
+                .eq('table_number', tableNumber)
+                .neq('status', 'served');
 
-        if (error) {
+            if (dbOrders && dbOrders.length > 0) {
+                // 2. Descontar stock
+                const deductionPromises = dbOrders.map(o =>
+                    supabase.rpc('deduct_stock_from_order', { order_uuid: o.id })
+                );
+                await Promise.all(deductionPromises);
+            }
+
+            // 3. Archivar
+            const { error } = await supabase
+                .from('orders')
+                .update({ status: 'served' })
+                .eq('table_number', tableNumber)
+                .neq('status', 'served');
+
+            if (error) throw error;
+
+            notify.success(`Mesa ${tableNumber} Liberada`, 'Stock actualizado correctamente');
+
+        } catch (error) {
             console.error('Error clearing table:', error);
-            fetchActiveOrders();
-            alert('Error al liberar la mesa');
+            fetchActiveOrders(); // Revertir si hay error
+            notify.error('Error', 'No se pudo liberar la mesa');
         }
     };
 
@@ -245,6 +259,7 @@ export default function DashboardMesas() {
     return (
         <div className="p-6 bg-gray-950 min-h-screen text-white font-sans">
             <Toaster position="top-right" expand={true} richColors />
+            <LowStockAlerts />
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
                 <div>
                     <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 flex items-center gap-3 italic">
@@ -252,7 +267,7 @@ export default function DashboardMesas() {
                         CONTROL GESTIÓN EL REMEI
                     </h1>
                     <div className="flex items-center gap-2 mt-1">
-                        <p className="text-gray-500 font-medium uppercase tracking-tighter">Administración en Tiempo Real • Sala & Bebida</p>
+                        <p className="text-gray-500 font-medium uppercase tracking-tighter">Sala • Stock • Fichas Técnicas</p>
                         <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isConnected ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500 animate-pulse'}`}>
                             <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
                             {isConnected ? 'Sincronizado' : 'Reconectando...'}
@@ -317,6 +332,14 @@ export default function DashboardMesas() {
                     <Link href="/products" className="flex items-center gap-2 bg-zinc-900 px-4 py-2 rounded-xl text-xs font-black hover:bg-zinc-800 transition-all border border-zinc-800">
                         <Package className="w-4 h-4" />
                         STOCK
+                    </Link>
+                    <Link href="/inventory" className="flex items-center gap-2 bg-blue-900/20 text-blue-400 px-4 py-2 rounded-xl text-xs font-black hover:bg-blue-900/30 transition-all border border-blue-500/20">
+                        <Scale className="w-4 h-4" />
+                        INVENTARIO
+                    </Link>
+                    <Link href="/recipes" className="flex items-center gap-2 bg-orange-900/20 text-orange-400 px-4 py-2 rounded-xl text-xs font-black hover:bg-orange-900/30 transition-all border border-orange-500/20">
+                        <ChefHat className="w-4 h-4" />
+                        RECETARIO
                     </Link>
                     <Link href="/customers" className="flex items-center gap-2 bg-emerald-600/10 text-emerald-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-600/20 transition-all border border-emerald-500/20">
                         <Users className="w-4 h-4" />

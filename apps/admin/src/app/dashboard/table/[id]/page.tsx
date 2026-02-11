@@ -6,6 +6,7 @@ import { ChefHat, CreditCard, ArrowLeft, Loader2, CheckCircle, Utensils, GlassWa
 import { Order } from '@/types';
 import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
+import { notify } from '@/lib/notifications';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,18 +73,38 @@ export default function TableDetail({ params }: { params: { id: string } | Promi
     const markAsServed = async () => {
         if (!tableId) return;
 
-        const { error } = await supabase
-            .from('orders')
-            .update({ status: 'served' })
-            .eq('table_number', parseInt(tableId))
-            .neq('status', 'served');
+        try {
+            // 1. Identificar pedidos activos
+            const { data: ordersToClose } = await supabase
+                .from('orders')
+                .select('id')
+                .eq('table_number', parseInt(tableId))
+                .neq('status', 'served');
 
-        if (error) {
-            toast.error('Error al liberar la mesa');
-        } else {
-            toast.success('Mesa liberada correctamente');
+            if (ordersToClose && ordersToClose.length > 0) {
+                // 2. Descontar Stock (ejecutar para cada pedido)
+                const deductionPromises = ordersToClose.map(order =>
+                    supabase.rpc('deduct_stock_from_order', { order_uuid: order.id })
+                );
+                await Promise.all(deductionPromises);
+            }
+
+            // 3. Marcar como servido (Archivar)
+            const { error } = await supabase
+                .from('orders')
+                .update({ status: 'served' })
+                .eq('table_number', parseInt(tableId))
+                .neq('status', 'served');
+
+            if (error) throw error;
+
+            notify.success('Mesa Liberada', 'Stock actualizado y mesa archivada');
             // Redirigir al dashboard
             window.location.href = '/dashboard';
+
+        } catch (error) {
+            console.error('Error closing table:', error);
+            notify.error('Error', 'No se pudo liberar la mesa');
         }
     };
 
@@ -111,9 +132,9 @@ export default function TableDetail({ params }: { params: { id: string } | Promi
             .eq('id', orderId);
 
         if (error) {
-            toast.error('Error al marcar producto como servido');
+            notify.error('Error al marcar producto', 'No se pudo actualizar el estado');
         } else {
-            toast.success('Producto servido');
+            notify.success('Producto Servido', 'Se ha marcado correctamente');
         }
     };
 

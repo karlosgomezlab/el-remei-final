@@ -53,4 +53,42 @@ export interface Order {
     drinks_served?: boolean;
 }
 
+
 export type TableStatus = 'available' | 'ordered' | 'paid';
+
+export interface Ingredient {
+    id: string;
+    name: string;
+    unit: string;
+    cost_per_unit: number;
+    stock: number;
+    min_stock_alert?: number;
+    supplier?: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface Recipe {
+    id: string;
+    product_id: string;
+    product?: Product; // For join
+    name?: string;
+    yield_quantity: number;
+    prep_time_minutes?: number;
+    status: 'draft' | 'active' | 'archived';
+    version: number;
+    created_at?: string;
+    updated_at?: string;
+    ingredients?: RecipeIngredient[];
+    recipe_ingredients?: RecipeIngredient[]; // For join result compatibility
+}
+
+export interface RecipeIngredient {
+    id: string;
+    recipe_id: string;
+    ingredient_id: string;
+    quantity: number;
+    unit?: string;
+    wastage_percent: number;
+    ingredient?: Ingredient; // For join
+}

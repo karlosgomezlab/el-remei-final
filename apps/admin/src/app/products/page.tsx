@@ -26,6 +26,7 @@ import Link from 'next/link';
 import { Product } from '@/types';
 import { getProductImage } from '@/utils/productImages';
 import { toast, Toaster } from 'sonner';
+import { notify } from '@/lib/notifications';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,7 +55,7 @@ export default function ProductsPage() {
             .order('category', { ascending: true });
 
         if (error) {
-            toast.error('Error al cargar productos');
+            notify.error('Error', 'Al cargar productos');
         } else {
             setProducts(data || []);
         }
@@ -82,7 +83,7 @@ export default function ProductsPage() {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingProduct?.name || !editingProduct?.price) {
-            toast.error('Nombre y precio son obligatorios');
+            notify.error('Error', 'Nombre y precio son obligatorios');
             return;
         }
 
@@ -122,12 +123,12 @@ export default function ProductsPage() {
 
             if (error) throw error;
 
-            toast.success(editingProduct.id ? 'Producto actualizado' : 'Producto creado');
+            notify.success(editingProduct.id ? 'Producto actualizado' : 'Producto creado');
             setIsModalOpen(false);
             fetchProducts();
         } catch (error: any) {
             console.error("Error saving product:", error);
-            toast.error(`Error: ${error.message || 'Al guardar plato'}`);
+            notify.error('Error', error.message || 'Al guardar plato');
         } finally {
             setSaving(false);
         }
@@ -140,10 +141,10 @@ export default function ProductsPage() {
             .eq('id', productId);
 
         if (error) {
-            toast.error('Error al cambiar disponibilidad');
+            notify.error('Error', 'Al cambiar disponibilidad');
         } else {
             setProducts(prev => prev.map(p => p.id === productId ? { ...p, is_available: !currentStatus } : p));
-            toast.success('Disponibilidad actualizada');
+            notify.success('Disponibilidad actualizada');
         }
     };
 
@@ -290,7 +291,7 @@ export default function ProductsPage() {
                                                     const fileName = `${Math.random()}.${fileExt}`;
                                                     const { error: uploadError } = await supabase.storage.from('menu-images').upload(fileName, file);
                                                     if (uploadError) {
-                                                        toast.error('Error subiendo imagen');
+                                                        notify.error('Error', 'Subiendo imagen');
                                                     } else {
                                                         const { data } = supabase.storage.from('menu-images').getPublicUrl(fileName);
                                                         setEditingProduct({ ...editingProduct!, image_url: data.publicUrl });
@@ -323,7 +324,7 @@ export default function ProductsPage() {
                                                     const { error: uploadError } = await supabase.storage.from('menu-images').upload(fileName, file);
                                                     if (uploadError) {
                                                         console.error('Error uploading image:', uploadError);
-                                                        toast.error(`Error subiendo imagen: ${uploadError.message}`);
+                                                        notify.error('Error', `Subiendo imagen: ${uploadError.message}`);
                                                     } else {
                                                         const { data } = supabase.storage.from('menu-images').getPublicUrl(fileName);
                                                         setEditingProduct({ ...editingProduct!, image_url_2: data.publicUrl });
@@ -507,9 +508,9 @@ export default function ProductsPage() {
         if (!confirm('¿Seguro que quieres eliminar este plato?')) return;
         const { error } = await supabase.from('products').delete().eq('id', productId);
         if (error) {
-            toast.error('Error al eliminar');
+            notify.error('Error al eliminar');
         } else {
-            toast.success('Producto eliminado');
+            notify.success('Producto eliminado');
             fetchProducts();
         }
     }

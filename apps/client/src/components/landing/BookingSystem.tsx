@@ -272,9 +272,9 @@ export const BookingSystem = () => {
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
-                                    className="h-full flex flex-col"
+                                    className="flex flex-col gap-6"
                                 >
-                                    <div className="flex justify-between items-center mb-6">
+                                    <div className="flex justify-between items-center">
                                         <button onClick={prevStep} className="text-xs font-black uppercase flex items-center gap-1 text-gray-400 hover:text-gray-900">
                                             <ChevronLeft className="w-4 h-4" /> Atrás
                                         </button>
@@ -291,9 +291,9 @@ export const BookingSystem = () => {
                                     </div>
 
                                     {/* Contenedor del Plano SVG */}
-                                    <div className="flex-1 bg-gray-50 rounded-[2rem] border-2 border-gray-100 overflow-hidden relative shadow-inner">
+                                    <div className="flex-1 min-h-[450px] md:min-h-[500px] bg-gray-50 rounded-[2rem] border-2 border-gray-100 overflow-hidden relative shadow-inner">
                                         {/* Dibujamos las mesas como componentes interactivos */}
-                                        <div className="absolute inset-0 p-8">
+                                        <div className="absolute inset-0">
                                             {tables.map((table: RestaurantTable) => {
                                                 const isOccupied = occupiedTables.includes(table.id);
                                                 const isSelected = selectedTable === table.id;

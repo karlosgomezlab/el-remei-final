@@ -8,7 +8,7 @@ export const Hero = () => {
         <section className="relative h-screen min-h-[600px] flex items-center justify-center overflow-hidden">
             {/* Background Image / Overlay */}
             <div className="absolute inset-0 bg-gray-900 z-0">
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1544025162-d76690b6d012?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center opacity-60 mix-blend-overlay"></div>
+                <div className="absolute inset-0 bg-[url('/header-bg.jpg')] bg-cover bg-center opacity-60 mix-blend-overlay"></div>
                 <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"></div>
             </div>
 

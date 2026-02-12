@@ -80,8 +80,8 @@ export const About = () => {
                                     className="w-full aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl"
                                 >
                                     <img
-                                        src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Restaurante Interior"
+                                        src="/interior-1.jpg"
+                                        alt="Interior del Restaurante"
                                         className="w-full h-full object-cover hover:scale-110 transition-transform duration-700"
                                     />
                                 </motion.div>
@@ -120,8 +120,8 @@ export const About = () => {
                                     className="w-full aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl"
                                 >
                                     <img
-                                        src="https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Chef cocinando"
+                                        src="/interior-2.jpg"
+                                        alt="Interior del Restaurante - Barra"
                                         className="w-full h-full object-cover hover:scale-110 transition-transform duration-700"
                                     />
                                 </motion.div>

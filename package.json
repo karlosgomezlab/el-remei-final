@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/client",
+    "apps/admin"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=apps/client -- --port 3101\" \"npm run dev --workspace=apps/admin -- --port 3100\" \"npm run dev --workspace=apps/landing -- --port 3002\"",

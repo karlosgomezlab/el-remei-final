@@ -838,7 +838,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                         toast.success(`Añadido: ${productToAdd.name}`, {
                             position: "top-center",
                             autoClose: 2000,
-                            icon: "🤖"
+
                         });
                         addedAny = true;
                         console.log(`IA añadió al carrito: ${productToAdd.name} (ID: ${productId})`);
@@ -853,7 +853,7 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
                             toast.success(`Añadido: ${fallbackProduct.name}`, {
                                 position: "top-center",
                                 autoClose: 2000,
-                                icon: "🤖"
+
                             });
                         }
                     }

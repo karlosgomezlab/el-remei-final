@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ChefHat, CreditCard, LayoutDashboard, Loader2, Utensils, Package, CheckCircle, History, GlassWater, Users, TrendingUp, Hand, Scale } from 'lucide-react';
+import { ChefHat, CreditCard, LayoutDashboard, Loader2, Utensils, Package, CheckCircle, History, GlassWater, Users, TrendingUp, Hand, Scale, Calendar } from 'lucide-react';
 import { Order } from '@/types';
 import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
@@ -348,6 +348,14 @@ export default function DashboardMesas() {
                     <Link href="/history" className="flex items-center gap-2 bg-zinc-900 px-4 py-2 rounded-xl text-xs font-black hover:bg-zinc-800 transition-all border border-zinc-800">
                         <History className="w-4 h-4" />
                         HISTORIAL
+                    </Link>
+                    <Link href="/mesas" className="flex items-center gap-2 bg-blue-600/10 text-blue-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-blue-600/20 transition-all border border-blue-500/20">
+                        <Scale className="w-4 h-4" />
+                        PLANO SALÓN
+                    </Link>
+                    <Link href="/bookings" className="flex items-center gap-2 bg-orange-600/10 text-orange-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-orange-600/20 transition-all border border-orange-500/20">
+                        <Calendar className="w-4 h-4" />
+                        RESERVAS
                     </Link>
                     <Link href="/stats" className="bg-gradient-to-br from-purple-600 to-indigo-700 p-4 rounded-2xl flex items-center gap-4 transition-all hover:scale-105 shadow-lg group">
                         <div className="bg-white/20 p-2 rounded-lg group-hover:bg-white/30 transition-all">

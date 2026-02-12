@@ -54,7 +54,20 @@ export interface Order {
 }
 
 
-export type TableStatus = 'available' | 'ordered' | 'paid';
+export interface Reservation {
+    id: string;
+    created_at: string;
+    reservation_date: string;
+    customer_name: string;
+    customer_phone: string;
+    email?: string;
+    party_size: number;
+    table_number?: number;
+    status: 'pending' | 'confirmed' | 'cancelled' | 'seated';
+    notes?: string;
+}
+
+export type TableStatus = 'available' | 'ordered' | 'paid' | 'reserved';
 
 export interface Ingredient {
     id: string;

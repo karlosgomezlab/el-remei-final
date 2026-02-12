@@ -21,8 +21,9 @@ export const Navbar = () => {
 
     const navLinks = [
         { name: 'Inicio', href: '/' },
-        { name: 'Sobre Nosotros', href: '#about' },
         { name: 'Ubicación', href: '#location' },
+        { name: 'Sobre Nosotros', href: '#about' },
+        { name: 'Mi Cuenta', href: '/cuenta' },
     ];
 
     if (pathname === '/scan') return null;
@@ -67,10 +68,13 @@ export const Navbar = () => {
                         >
                             <QrCode className="w-5 h-5" />
                         </Link>
-                        <button className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-bold text-sm uppercase tracking-wide transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30">
+                        <Link
+                            href="#booking"
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-bold text-xs uppercase tracking-wide transition-all transform hover:scale-105 shadow-md shadow-orange-500/20 text-center"
+                        >
                             Reservar Mesa
-                        </button>
-                        <button className="px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-full font-bold text-sm uppercase tracking-wide transition-all transform hover:scale-105 shadow-lg">
+                        </Link>
+                        <button className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-full font-bold text-xs uppercase tracking-wide transition-all transform hover:scale-105 shadow-md">
                             Pedir a Domicilio
                         </button>
                     </div>
@@ -104,18 +108,22 @@ export const Navbar = () => {
                                 {link.name}
                             </Link>
                         ))}
-                        <div className="flex flex-col gap-3 mt-4">
+                        <div className="flex flex-col gap-2 mt-2">
                             <Link
                                 href="/scan"
-                                className="flex items-center justify-center gap-2 w-full py-3 bg-gray-100 text-gray-900 rounded-xl font-bold uppercase text-sm"
+                                className="flex items-center justify-center gap-2 w-full py-2 bg-gray-100 text-gray-900 rounded-lg font-bold uppercase text-xs"
                                 onClick={() => setIsOpen(false)}
                             >
                                 <QrCode className="w-4 h-4" /> Escanear QR
                             </Link>
-                            <button className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold uppercase text-sm shadow-lg shadow-orange-500/30">
+                            <Link
+                                href="#booking"
+                                className="w-full py-2 bg-orange-500 text-white rounded-lg font-bold uppercase text-xs shadow-md shadow-orange-500/20 text-center"
+                                onClick={() => setIsOpen(false)}
+                            >
                                 Reservar Mesa
-                            </button>
-                            <button className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold uppercase text-sm">
+                            </Link>
+                            <button className="w-full py-2 bg-gray-900 text-white rounded-lg font-bold uppercase text-xs shadow-md" onClick={() => setIsOpen(false)}>
                                 Pedir a Domicilio
                             </button>
                         </div>

@@ -2,6 +2,7 @@
 
 import { ArrowRight, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 export const Hero = () => {
     return (
@@ -41,7 +42,7 @@ export const Hero = () => {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.6 }}
-                    className="text-lg md:text-2xl text-gray-300 font-medium max-w-2xl mx-auto leading-relaxed"
+                    className="text-lg md:text-2xl text-white font-bold max-w-2xl mx-auto leading-relaxed drop-shadow-lg"
                 >
                     Sabor tradicional, ingredientes frescos y el ambiente familiar que te hace sentir como en casa.
                 </motion.p>
@@ -51,13 +52,16 @@ export const Hero = () => {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.8 }}
-                    className="flex flex-col sm:flex-row gap-4 mt-8 w-full justify-center"
+                    className="flex flex-col sm:flex-row gap-4 mt-6 w-full justify-center"
                 >
-                    <button className="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-black text-lg uppercase tracking-wide transition-all transform hover:scale-105 shadow-[0_20px_50px_rgba(249,115,22,0.3)] flex items-center justify-center gap-2 group">
+                    <Link
+                        href="#booking"
+                        className="px-4 py-2.5 sm:px-6 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-black text-xs sm:text-sm uppercase tracking-widest transition-all transform hover:scale-105 shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 group mx-auto sm:mx-0 min-w-[200px] sm:min-w-0"
+                    >
                         Reservar Ahora
-                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                    <button className="px-8 py-4 bg-white hover:bg-gray-100 text-gray-900 rounded-full font-black text-lg uppercase tracking-wide transition-all transform hover:scale-105 shadow-xl flex items-center justify-center">
+                        <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+                    <button className="px-4 py-2.5 sm:px-6 sm:py-3 bg-white hover:bg-gray-100 text-gray-900 rounded-full font-black text-xs sm:text-sm uppercase tracking-widest transition-all transform hover:scale-105 shadow-md flex items-center justify-center mx-auto sm:mx-0 min-w-[200px] sm:min-w-0">
                         Pedir a Domicilio
                     </button>
                 </motion.div>

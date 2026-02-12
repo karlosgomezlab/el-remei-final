@@ -90,12 +90,13 @@ export const About = () => {
                                     whileInView={{ opacity: 1, scale: 1 }}
                                     viewport={{ once: true }}
                                     transition={{ duration: 0.6, delay: 0.2 }}
-                                    className="w-full aspect-square rounded-3xl overflow-hidden shadow-xl bg-orange-500 flex items-center justify-center text-white p-6 text-center"
+                                    className="w-full aspect-square rounded-3xl overflow-hidden shadow-xl"
                                 >
-                                    <div>
-                                        <span className="block text-5xl font-black">35+</span>
-                                        <span className="text-sm font-bold uppercase tracking-widest">Años de historia</span>
-                                    </div>
+                                    <img
+                                        src="/Ensalada.jpg"
+                                        alt="Ensalada El Remei"
+                                        className="w-full h-full object-cover hover:scale-110 transition-transform duration-700"
+                                    />
                                 </motion.div>
                             </div>
                             <div className="space-y-4">

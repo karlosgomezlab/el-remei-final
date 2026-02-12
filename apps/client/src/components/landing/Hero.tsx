@@ -8,8 +8,8 @@ export const Hero = () => {
         <section className="relative h-screen min-h-[600px] flex items-center justify-center overflow-hidden">
             {/* Background Image / Overlay */}
             <div className="absolute inset-0 bg-gray-900 z-0">
-                <div className="absolute inset-0 bg-[url('/header-bg.jpg')] bg-cover bg-center opacity-60 mix-blend-overlay"></div>
-                <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"></div>
+                <div className="absolute inset-0 bg-[url('/header-bg.jpg')] bg-cover bg-center opacity-80"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/10 to-black/50"></div>
             </div>
 
             <div className="relative z-10 container mx-auto px-4 text-center text-white flex flex-col items-center gap-6 md:gap-8 max-w-4xl">

@@ -17,6 +17,7 @@ const supabase = createClient(
 
 export default function DashboardMesas() {
     const [orders, setOrders] = useState<Order[]>([]);
+    const [reservations, setReservations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isConnected, setIsConnected] = useState(true);
     const [waiterCalls, setWaiterCalls] = useState<any[]>([]);
@@ -31,6 +32,7 @@ export default function DashboardMesas() {
     useEffect(() => {
         // 1. Carga inicial
         fetchActiveOrders();
+        fetchActiveReservations();
 
         // 2. Sistema de Suscripción Robusta con Auto-Reconexión
         let channel: any;
@@ -45,10 +47,14 @@ export default function DashboardMesas() {
                     { event: '*', schema: 'public', table: 'orders' },
                     (payload) => handleRealtimeUpdate(payload)
                 )
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'reservations' },
+                    () => fetchActiveReservations(true)
+                )
                 .subscribe((status) => {
                     setIsConnected(status === 'SUBSCRIBED');
                     if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-                        // Reintentar conexión tras un breve retraso si se cae
                         setTimeout(setupSubscription, 5000);
                     }
                 });
@@ -58,7 +64,8 @@ export default function DashboardMesas() {
 
         // 3. Sincronización Silenciosa (Libreta de seguridad cada 30s)
         const syncInterval = setInterval(() => {
-            fetchActiveOrders(true); // Modo silencioso
+            fetchActiveOrders(true);
+            fetchActiveReservations(true);
         }, 30000);
 
         return () => {
@@ -66,6 +73,19 @@ export default function DashboardMesas() {
             clearInterval(syncInterval);
         };
     }, []);
+
+    const fetchActiveReservations = async (silent = false) => {
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await supabase
+            .from('reservations')
+            .select('*')
+            .gte('reservation_date', `${today}T00:00:00`)
+            .lte('reservation_date', `${today}T23:59:59`)
+            .neq('status', 'cancelled')
+            .neq('status', 'completed');
+
+        if (data) setReservations(data);
+    };
 
     useEffect(() => {
         fetchWaiterCalls();
@@ -417,14 +437,43 @@ export default function DashboardMesas() {
         </div>
     );
 
+    const liberateTable = async (tableNumber: number) => {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const { error } = await supabase
+                .from('reservations')
+                .update({ status: 'completed' })
+                .eq('table_number', tableNumber)
+                .gte('reservation_date', `${today}T00:00:00`)
+                .lte('reservation_date', `${today}T23:59:59`)
+                .neq('status', 'cancelled');
+
+            if (error) throw error;
+
+            setReservations(prev => prev.filter(r => r.table_number !== tableNumber));
+            notify.success(`Mesa ${tableNumber} Liberada`, 'Disponible para nuevas reservas online');
+        } catch (error) {
+            console.error('Error liberating table:', error);
+            notify.error('Error', 'No se pudo liberar la mesa');
+        }
+    };
+
     function renderTableCard(num: number, type: string, displayNum?: number) {
         // Obtenemos todos los pedidos activos para esta mesa
         const tableOrders = orders.filter(o => o.table_number === num);
+        const tableReservations = reservations.filter(r => r.table_number === num);
         const display = displayNum || num;
 
         let statusColor = "border-gray-800 bg-gray-900/30 opacity-40";
         let label = "VACÍA";
         let pulse = false;
+
+        // 1. Lógica de Reservas (Prioridad si está vacía)
+        const hasReservation = tableReservations.length > 0;
+        if (hasReservation && tableOrders.length === 0) {
+            statusColor = "border-orange-500/50 bg-orange-950/20 text-orange-400";
+            label = "RESERVADA";
+        }
 
         if (tableOrders.length > 0) {
             const anyUnpaid = tableOrders.some(o => !o.is_paid);
@@ -445,6 +494,10 @@ export default function DashboardMesas() {
             }
         }
 
+        // 2. Lógica de Liberación (45 min)
+        const oldestOrder = tableOrders.length > 0 ? tableOrders.reduce((prev, curr) => (new Date(prev.created_at!) < new Date(curr.created_at!) ? prev : curr)) : null;
+        const needsLiberation = oldestOrder && (new Date().getTime() - new Date(oldestOrder.created_at!).getTime()) > 45 * 60 * 1000;
+
         const allItems = tableOrders.flatMap(o => o.items.map(item => ({ ...item, drinks_served: o.drinks_served, orderId: o.id })));
         const beverages = allItems.filter((item: any) => item.category?.toLowerCase() === 'bebida');
         const foodItems = allItems.filter((item: any) => item.category?.toLowerCase() !== 'bebida');
@@ -455,125 +508,150 @@ export default function DashboardMesas() {
         );
 
         return (
-            <Link
-                href={`/dashboard/table/${num}`}
-                key={num}
-                className={`min-h-[180px] rounded-3xl flex flex-col items-center p-4 border-2 transition-all duration-300 relative group overflow-hidden ${statusColor} ${pulse ? 'animate-pulse' : ''} ${tableOrders.length > 0 ? 'scale-[1.02] shadow-xl shadow-black/50 opacity-100 cursor-pointer' : 'opacity-40 hover:opacity-100 cursor-pointer'}`}
-            >
-                <div className="absolute top-3 right-4 text-[9px] font-black opacity-30 tracking-widest">{type.toUpperCase()}</div>
-
-                <span className="text-[10px] uppercase font-black tracking-[0.2em] opacity-50 mb-1">
-                    {type}
-                </span>
-                <span className={`text-4xl font-black italic ${tableOrders.length > 0 ? 'scale-110 mb-1' : ''}`}>{display}</span>
-
-                {/* Indicador de Llamada de Camarero en la Mesa */}
-                {waiterCalls.some(c => c.table_number == num) && (
-                    <div className="absolute inset-0 bg-red-600/20 animate-pulse flex items-center justify-center">
-                        <div className="bg-red-600 p-3 rounded-full shadow-2xl animate-bounce">
-                            <Hand className="w-8 h-8 text-white" />
-                        </div>
+            <div key={num} className="relative group">
+                {/* Burbuja de Sugerencia de Liberación (45 min) */}
+                {needsLiberation && (
+                    <div className="absolute -top-3 -right-3 z-30 animate-bounce">
+                        <button
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                liberateTable(num);
+                            }}
+                            className="bg-red-500 text-white text-[8px] font-black px-3 py-2 rounded-2xl shadow-xl shadow-red-500/40 border border-white/20 whitespace-nowrap hover:scale-110 transition-transform"
+                        >
+                            ¿LIBERAR MESA?
+                        </button>
                     </div>
                 )}
+                <Link
+                    href={`/dashboard/table/${num}`}
+                    className={`min-h-[180px] rounded-3xl flex flex-col items-center p-4 border-2 transition-all duration-300 relative overflow-hidden ${statusColor} ${pulse ? 'animate-pulse' : ''} ${tableOrders.length > 0 || hasReservation ? 'scale-[1.02] shadow-xl shadow-black/50 opacity-100 cursor-pointer' : 'opacity-40 hover:opacity-100 cursor-pointer'}`}
+                >
+                    <div className="absolute top-3 right-4 text-[9px] font-black opacity-30 tracking-widest">{type.toUpperCase()}</div>
 
-                {tableOrders.length > 0 && (
-                    <>
-                        <div className={`mt-2 text-[10px] font-black px-2 py-0.5 rounded-full border mb-3 ${tableOrders.some(o => o.is_paid) ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-yellow-500/20 border-yellow-500/30'}`}>
-                            {label}
+                    <span className="text-[10px] uppercase font-black tracking-[0.2em] opacity-50 mb-1">
+                        {type}
+                    </span>
+                    <span className={`text-4xl font-black italic ${tableOrders.length > 0 ? 'scale-110 mb-1' : ''}`}>{display}</span>
+
+                    {/* Indicador de RESERVADA (Marco iluminado) */}
+                    {hasReservation && (
+                        <div className="absolute inset-0 border-4 border-orange-500/30 rounded-3xl pointer-events-none">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-orange-500 text-white text-[7px] font-black px-2 py-0.5 rounded-b-lg tracking-tighter shadow-lg">
+                                RESERVADA
+                            </div>
                         </div>
+                    )}
 
-                        <div className="w-full space-y-3 mt-auto">
-                            {/* Listado de Comida */}
-                            {foodItems.length > 0 && (
-                                <div className="space-y-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[8px] font-black uppercase opacity-60">Cocina</span>
-                                        {tableOrders.some(o => o.status === 'ready') && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    tableOrders.filter(o => o.status === 'ready').forEach(o => markAsDelivering(o.id));
-                                                }}
-                                                className="bg-orange-500 hover:bg-orange-400 text-white text-[7px] font-black px-1.5 py-0.5 rounded-md transition-all animate-pulse"
-                                            >
-                                                EN CAMINO
-                                            </button>
-                                        )}
-                                        {foodItems.every((item: any) => item.is_ready) && !tableOrders.some(o => o.status === 'ready') && (
-                                            <ChefHat className="w-3 h-3 text-orange-400" />
-                                        )}
-                                    </div>
-                                    <div className="max-h-20 overflow-y-auto no-scrollbar space-y-0.5">
-                                        {foodItems.map((item: any, i) => (
-                                            <div key={i} className={`flex justify-between items-center text-[9px] font-bold ${(item.is_ready || item.is_served) ? 'text-emerald-400' : (tableOrders.some(o => o.id === item.orderId && o.status === 'delivering')) ? 'text-blue-400' : 'text-gray-300'}`}>
-                                                <div className="flex items-center gap-1 truncate">
-                                                    {(item.is_served || tableOrders.some(o => o.id === item.orderId && o.status === 'delivering')) && <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />}
-                                                    <span className={`truncate ${item.is_served ? 'line-through opacity-60' : ''}`}>{item.name}</span>
-                                                </div>
-                                                <span className="opacity-60 italic flex-shrink-0">x{item.qty || 1}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Listado de Bebidas */}
-                            {beverages.length > 0 && (
-                                <div className="pt-2 border-t border-current/10 space-y-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[8px] font-black uppercase opacity-60">Bebidas</span>
-                                        {allDrinksServed ? (
-                                            <CheckCircle className="w-3 h-3 text-emerald-400" />
-                                        ) : (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    tableOrders.forEach(o => {
-                                                        if (o.items.some(i => i.category?.toLowerCase() === 'bebida') && !o.drinks_served) {
-                                                            markDrinksAsServed(o.id);
-                                                        }
-                                                    });
-                                                }}
-                                                className="bg-blue-600 hover:bg-blue-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-md transition-all"
-                                            >
-                                                SERVIR
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="max-h-16 overflow-y-auto no-scrollbar space-y-0.5">
-                                        {beverages.map((item: any, i) => (
-                                            <div key={i} className={`flex justify-between items-center text-[9px] font-bold ${item.drinks_served ? 'text-emerald-400' : 'text-gray-300'}`}>
-                                                <div className="flex items-center gap-1 truncate">
-                                                    {item.drinks_served && <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />}
-                                                    <span className={`truncate ${item.drinks_served ? 'line-through opacity-60' : ''}`}>{item.name}</span>
-                                                </div>
-                                                <span className="opacity-60 italic flex-shrink-0">x{item.qty || 1}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                    {/* Indicador de Llamada de Camarero en la Mesa */}
+                    {waiterCalls.some(c => c.table_number == num) && (
+                        <div className="absolute inset-0 bg-red-600/20 animate-pulse flex items-center justify-center">
+                            <div className="bg-red-600 p-3 rounded-full shadow-2xl animate-bounce">
+                                <Hand className="w-8 h-8 text-white" />
+                            </div>
                         </div>
-                    </>
-                )}
+                    )}
 
-                {/* Botón Maestro para liberar mesa */}
-                {tableOrders.length > 0 && (
-                    <button
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            markAsServed(num);
-                        }}
-                        className="absolute top-3 left-3 bg-zinc-800 hover:bg-red-900 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-2xl border border-white/5"
-                        title="Liberar por completo y enviar a historial"
-                    >
-                        <CheckCircle className="w-4 h-4" />
-                    </button>
-                )}
-            </Link>
+                    {(tableOrders.length > 0 || hasReservation) && (
+                        <>
+                            <div className={`mt-2 text-[10px] font-black px-2 py-0.5 rounded-full border mb-3 ${hasReservation && tableOrders.length === 0 ? 'bg-orange-500/20 border-orange-500/30' : tableOrders.some(o => o.is_paid) ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-yellow-500/20 border-yellow-500/30'}`}>
+                                {label}
+                            </div>
+
+                            <div className="w-full space-y-3 mt-auto">
+                                {/* Listado de Comida */}
+                                {foodItems.length > 0 && (
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[8px] font-black uppercase opacity-60">Cocina</span>
+                                            {tableOrders.some(o => o.status === 'ready') && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        tableOrders.filter(o => o.status === 'ready').forEach(o => markAsDelivering(o.id));
+                                                    }}
+                                                    className="bg-orange-500 hover:bg-orange-400 text-white text-[7px] font-black px-1.5 py-0.5 rounded-md transition-all animate-pulse"
+                                                >
+                                                    EN CAMINO
+                                                </button>
+                                            )}
+                                            {foodItems.every((item: any) => item.is_ready) && !tableOrders.some(o => o.status === 'ready') && (
+                                                <ChefHat className="w-3 h-3 text-orange-400" />
+                                            )}
+                                        </div>
+                                        <div className="max-h-20 overflow-y-auto no-scrollbar space-y-0.5">
+                                            {foodItems.map((item: any, i) => (
+                                                <div key={i} className={`flex justify-between items-center text-[9px] font-bold ${(item.is_ready || item.is_served) ? 'text-emerald-400' : (tableOrders.some(o => o.id === item.orderId && o.status === 'delivering')) ? 'text-blue-400' : 'text-gray-300'}`}>
+                                                    <div className="flex items-center gap-1 truncate">
+                                                        {(item.is_served || tableOrders.some(o => o.id === item.orderId && o.status === 'delivering')) && <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />}
+                                                        <span className={`truncate ${item.is_served ? 'line-through opacity-60' : ''}`}>{item.name}</span>
+                                                    </div>
+                                                    <span className="opacity-60 italic flex-shrink-0">x{item.qty || 1}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Listado de Bebidas */}
+                                {beverages.length > 0 && (
+                                    <div className="pt-2 border-t border-current/10 space-y-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[8px] font-black uppercase opacity-60">Bebidas</span>
+                                            {allDrinksServed ? (
+                                                <CheckCircle className="w-3 h-3 text-emerald-400" />
+                                            ) : (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        tableOrders.forEach(o => {
+                                                            if (o.items.some(i => i.category?.toLowerCase() === 'bebida') && !o.drinks_served) {
+                                                                markDrinksAsServed(o.id);
+                                                            }
+                                                        });
+                                                    }}
+                                                    className="bg-blue-600 hover:bg-blue-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-md transition-all"
+                                                >
+                                                    SERVIR
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="max-h-16 overflow-y-auto no-scrollbar space-y-0.5">
+                                            {beverages.map((item: any, i) => (
+                                                <div key={i} className={`flex justify-between items-center text-[9px] font-bold ${item.drinks_served ? 'text-emerald-400' : 'text-gray-300'}`}>
+                                                    <div className="flex items-center gap-1 truncate">
+                                                        {item.drinks_served && <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />}
+                                                        <span className={`truncate ${item.drinks_served ? 'line-through opacity-60' : ''}`}>{item.name}</span>
+                                                    </div>
+                                                    <span className="opacity-60 italic flex-shrink-0">x{item.qty || 1}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+
+                    {/* Botón Maestro para liberar mesa */}
+                    {tableOrders.length > 0 && (
+                        <button
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                markAsServed(num);
+                            }}
+                            className="absolute top-3 left-3 bg-zinc-800 hover:bg-red-900 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-2xl border border-white/5"
+                            title="Liberar por completo y enviar a historial"
+                        >
+                            <CheckCircle className="w-4 h-4" />
+                        </button>
+                    )}
+                </Link>
+            </div>
         );
     }
 }

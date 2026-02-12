@@ -7,7 +7,7 @@
     "apps/admin"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=apps/client -- --port 3101\" \"npm run dev --workspace=apps/admin -- --port 3100\" \"npm run dev --workspace=apps/landing -- --port 3002\"",
+    "dev": "concurrently \"npm run dev --workspace=apps/client -- --port 3101\" \"npm run dev --workspace=apps/admin -- --port 3100\"",
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start --workspaces --if-present"
   },

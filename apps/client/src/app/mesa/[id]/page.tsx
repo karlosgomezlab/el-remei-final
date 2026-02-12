@@ -782,7 +782,6 @@ export default function MenuCliente({ params }: { params: { id: string } }) {
             if (error) throw error;
 
             toast.success(t.callWaiter.success, {
-                icon: '👋',
                 position: "top-center",
                 autoClose: 3000
             });
